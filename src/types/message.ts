@@ -1,7 +1,7 @@
 /**
- * Message role enum based on AI-Protocol standard_schema
+ * Message role enum based on AI-Protocol standard_message_roles
  */
-export type MessageRole = 'system' | 'user' | 'assistant';
+export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
 
 /**
  * Image source for multimodal content
@@ -57,11 +57,13 @@ export type ContentBlock =
 export type MessageContent = string | ContentBlock[];
 
 /**
- * Unified message structure based on AI-Protocol standard_schema
+ * Unified message structure based on AI-Protocol standard_message_roles
  */
 export interface Message {
   role: MessageRole;
   content: MessageContent;
+  /** Required when role is 'tool'; references the tool_call id from assistant */
+  tool_call_id?: string;
 }
 
 /**
@@ -87,6 +89,13 @@ export const Message = {
    */
   assistant(text: string): Message {
     return { role: 'assistant', content: text };
+  },
+
+  /**
+   * Create a tool result message for multi-turn tool calling
+   */
+  tool(toolCallId: string, content: string): Message {
+    return { role: 'tool', content, tool_call_id: toolCallId };
   },
 
   /**

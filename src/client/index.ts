@@ -194,10 +194,14 @@ export class AiClient {
   private buildRequest(options: ChatOptions): UnifiedRequest {
     const request: UnifiedRequest = {
       model: this.modelId,
-      messages: options.messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
+      messages: options.messages.map((m) => {
+        const msg: { role: string; content: unknown; tool_call_id?: string } = {
+          role: m.role,
+          content: m.content,
+        };
+        if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+        return msg;
+      }),
       stream: options.stream ?? false,
     };
 

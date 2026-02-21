@@ -136,6 +136,16 @@ export class CircuitBreaker {
     }
   }
 
+  /** Report success (for use with PreflightChecker) */
+  reportSuccess(): void {
+    this.recordSuccess();
+  }
+
+  /** Report failure (for use with PreflightChecker) */
+  reportFailure(): void {
+    this.recordFailure();
+  }
+
   getTimeUntilRetry(): number | undefined {
     this.checkStateTransition();
     if (this.state !== 'open' || this.openedAt == null) return undefined;

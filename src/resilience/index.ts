@@ -24,3 +24,13 @@ export type { RateLimiterConfig } from './rate-limiter.js';
 
 export { Backpressure, BackpressureError } from './backpressure.js';
 export type { BackpressureConfig } from './backpressure.js';
+
+export {
+  PreflightChecker,
+  PreflightError,
+} from './preflight.js';
+export type {
+  PreflightConfig,
+  PreflightResult,
+  PreflightCheckerOptions,
+} from './preflight.js';

@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseManifestV2 } from '../src/index.ts';
+import { Pipeline } from '../src/index.js';
+import { parseManifestV2 } from '../src/index.js';
 
 describe('parseManifestV2', () => {
   it('should parse minimal manifest', () => {
@@ -29,5 +30,35 @@ describe('parseManifestV2', () => {
   it('should throw for invalid manifest', () => {
     expect(() => parseManifestV2(null)).toThrow('Manifest must be an object');
     expect(() => parseManifestV2({})).toThrow('Manifest must have string "id"');
+  });
+});
+
+describe('Pipeline.fromManifest', () => {
+  it('creates OpenAI pipeline for openai provider', () => {
+    const pipeline = Pipeline.fromManifest({
+      id: 'openai',
+      protocol_version: '1.0',
+      model_id: 'gpt-4o',
+    });
+    const events = pipeline.process(
+      'data: {"choices":[{"delta":{"content":"hi"},"index":0}]}\n\n'
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0].event_type).toBe('PartialContentDelta');
+    expect(events[0].content).toBe('hi');
+  });
+
+  it('creates Anthropic pipeline for anthropic provider', () => {
+    const pipeline = Pipeline.fromManifest({
+      id: 'anthropic',
+      protocol_version: '1.0',
+      model_id: 'claude-3-5-sonnet',
+    });
+    const events = pipeline.process(
+      'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"},"index":0}\n\n'
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0].event_type).toBe('PartialContentDelta');
+    expect(events[0].content).toBe('hi');
   });
 });

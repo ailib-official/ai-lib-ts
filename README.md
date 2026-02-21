@@ -1,27 +1,22 @@
 # ai-lib-ts
 
-**AI-Protocol TypeScript Runtime** - Official TypeScript/Node.js implementation for unified AI model interaction.
+**Official TypeScript Runtime for AI-Protocol** - The canonical TypeScript/Node.js implementation for unified AI model interaction.
 
-`ai-lib-ts` is the official TypeScript runtime for [AI-Protocol](https://github.com/hiddenpath/ai-protocol), providing a unified interface for interacting with AI models across different providers without hardcoding provider-specific logic.
+[![npm version](https://img.shields.io/npm/v/@hiddenpath/ai-lib-ts.svg)](https://www.npmjs.com/package/@hiddenpath/ai-lib-ts)
+[![Node 18+](https://img.shields.io/badge/node-18+-green.svg)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green.svg)](LICENSE)
 
 ## 🎯 Design Philosophy
 
-- **Protocol-Driven**: All behavior is configured through protocol manifests, not code
-- **Provider-Agnostic**: Unified interface across OpenAI, Anthropic, Google, DeepSeek, and 30+ providers
-- **Streaming-First**: Native support for Server-Sent Events (SSE) streaming
-- **Type-Safe**: Strongly typed request/response handling with comprehensive error types
+`ai-lib-ts` is the official TypeScript runtime implementation for the [AI-Protocol](https://github.com/hiddenpath/ai-protocol) specification. It embodies the core design principle:
 
-## 📦 Installation
+> **一切逻辑皆算子，一切配置皆协议** (All logic is operators, all configuration is protocol)
 
-```bash
-npm install @hiddenpath/ai-lib-ts
+Unlike traditional adapter libraries that hardcode provider-specific logic, `ai-lib-ts` is a **protocol-driven runtime** that executes AI-Protocol specifications. This means:
 
-# or
-yarn add @hiddenpath/ai-lib-ts
-
-# or
-pnpm add @hiddenpath/ai-lib-ts
-```
+- **Zero hardcoded provider logic**: All behavior is driven by protocol manifests (YAML/JSON configurations)
+- **Operator-based architecture**: Processing is done through composable operators (Decoder → Selector → EventMapper)
+- **Unified interface**: Developers interact with a single, consistent API regardless of the underlying provider
 
 ## 🚀 Quick Start
 
@@ -30,128 +25,45 @@ pnpm add @hiddenpath/ai-lib-ts
 ```typescript
 import { AiClient, Message } from '@hiddenpath/ai-lib-ts';
 
-// Create a client for a specific model
-const client = await AiClient.new('deepseek/deepseek-chat');
+const client = await AiClient.new('openai/gpt-4o');
 
-// Send a chat request
 const response = await client
   .chat([
     Message.system('You are a helpful assistant.'),
-    Message.user('Hello!'),
+    Message.user("Hello! What's 2+2?"),
   ])
-  .temperature(0.7)
-  .maxTokens(500)
   .execute();
 
 console.log(response.content);
-console.log(response.usage);
+// Output: 2+2 equals 4.
 ```
 
-### Streaming Responses
+## ✨ Features
 
-```typescript
-import { AiClient, Message } from '@hiddenpath/ai-lib-ts';
+- **Protocol-Driven**: All behavior is driven by YAML/JSON protocol files
+- **Unified Interface**: Single API for all AI providers (OpenAI, Anthropic, DeepSeek, etc.)
+- **Streaming First**: Native async streaming with `for await`
+- **Type Safe**: Full TypeScript types for requests, responses, and errors
+- **Production Ready**: Built-in retry, rate limiting, circuit breaker, backpressure, and preflight
+- **Extensible**: Easy to add new providers via protocol configuration
+- **Multimodal**: Support for text, images (base64/URL), audio, video
+- **Token Counting**: Cost estimation and token estimation
+- **Request Batching**: BatchExecutor and BatchCollector for parallel execution
+- **Model Routing**: ModelManager with Cost/Quality/RoundRobin selectors
+- **Embeddings**: EmbeddingClient for vector generation
+- **Structured Output**: JSON mode with schema config
+- **Response Caching**: MemoryCache with TTL support
+- **Plugin System**: PluginRegistry and HookManager
+- **Stream Cancellation**: CancelHandle for cancellable streaming
+- **MCP Bridge**: McpToolBridge for MCP tools ↔ AI-Protocol format
 
-const client = await AiClient.new('openai/gpt-4o');
+## 🔄 V2 Protocol Alignment
 
-// Stream the response
-const stream = client
-  .chat([Message.user('Tell me a story')])
-  .stream()
-  .executeStream();
+`ai-lib-ts` aligns with the **AI-Protocol V2** specification. V0.4.0 includes V2 manifest parsing, PreflightChecker, BatchExecutor/BatchCollector, and Pipeline.fromManifest.
 
-for await (const event of stream) {
-  if (event.event_type === 'PartialContentDelta') {
-    process.stdout.write(event.content);
-  }
-}
-```
+### Standard Error Codes (V2)
 
-### Tool Calling
-
-```typescript
-import { AiClient, Message, Tool } from '@hiddenpath/ai-lib-ts';
-
-const client = await AiClient.new('anthropic/claude-3-5-sonnet');
-
-const weatherTool = Tool.define(
-  'get_weather',
-  {
-    type: 'object',
-    properties: {
-      location: { type: 'string' },
-    },
-    required: ['location'],
-  },
-  'Get current weather for a location'
-);
-
-const response = await client
-  .chat([Message.user("What's the weather in Tokyo?")])
-  .tools([weatherTool])
-  .execute();
-
-if (response.toolCalls) {
-  for (const tc of response.toolCalls) {
-    console.log(`Tool: ${tc.function.name}`);
-    console.log(`Args: ${tc.function.arguments}`);
-  }
-}
-```
-
-### Client Builder
-
-```typescript
-import { createClientBuilder, MOCK_SERVER_URL } from '@hiddenpath/ai-lib-ts';
-
-// For testing with mock server (default: http://192.168.2.13:4010)
-const client = await createClientBuilder()
-  .withMockServer() // or .withMockServer('http://your-mock:4010')
-  .withTimeout(30000)
-  .build('openai/gpt-4o');
-
-// With fallback models
-const clientWithFallbacks = await createClientBuilder()
-  .withFallbacks(['anthropic/claude-3-5-sonnet', 'deepseek/deepseek-chat'])
-  .build('openai/gpt-4o');
-```
-
-## 🏗️ Architecture
-
-### Protocol Layer (`protocol/`)
-- **Loader**: Load protocol manifests from local files, npm packages, or remote URLs
-- **Validator**: Validate manifests against JSON Schema
-- **Manifest**: Strongly typed protocol configuration structures
-- **V2**: ManifestV2 types, parseManifestV2, loadManifestV2FromUrl
-
-### Transport Layer (`transport/`)
-- **HttpTransport**: HTTP client with retry, timeout, and streaming support
-- **Resilience**: RetryPolicy, CircuitBreaker, RateLimiter, Backpressure (injectable)
-- Native `fetch` API for maximum compatibility
-
-### Pipeline Layer (`pipeline/`)
-- **Decoder**: Parse raw bytes to SSE frames
-- **Selector**: Filter frames based on conditions
-- **EventMapper**: Transform provider frames to unified events
-
-### Client Layer (`client/`)
-- **AiClient**: Main entry point for AI interactions
-- **AiClientBuilder**: Configure clients with custom options
-- **ChatBuilder**: Fluent API for building chat requests
-- **CancelHandle**: executeStreamWithCancel() for cancellable streaming
-
-### Extended Modules (v0.3.0+)
-- **Resilience**: RetryPolicy, CircuitBreaker, RateLimiter, Backpressure
-- **Routing**: ModelManager, CostBasedSelector, QualityBasedSelector, ModelArray
-- **Negotiation**: FallbackChain, firstSuccess, parallelAll
-- **Multimodal**: SttClient, TtsClient, RerankerClient; ContentBlock (video, omni)
-- **Extras**: EmbeddingClient, MemoryCache, jsonObjectConfig, estimateTokens
-- **Plugins**: PluginRegistry, HookManager
-- **MCP**: McpToolBridge (MCP tools ↔ AI-Protocol format)
-
-## 📋 Standard Error Codes (V2)
-
-All provider errors are classified into 13 standard error codes:
+All provider errors are classified into 13 standard error codes with unified retry/fallback semantics:
 
 | Code   | Name             | Retryable | Fallbackable |
 |--------|------------------|-----------|--------------|
@@ -169,86 +81,347 @@ All provider errors are classified into 13 standard error codes:
 | E4002  | cancelled        | No        | No           |
 | E9999  | unknown          | No        | No           |
 
-## 🧪 Testing with Mock Server
+### Testing with ai-protocol-mock
 
-Use [ai-protocol-mock](https://github.com/hiddenpath/ai-protocol-mock) for testing without real API calls:
+For integration tests without real API calls, use [ai-protocol-mock](https://github.com/hiddenpath/ai-protocol-mock):
 
 ```typescript
 import { createClientBuilder } from '@hiddenpath/ai-lib-ts';
 
 // Set environment variable
-process.env.MOCK_HTTP_URL = 'http://192.168.2.13:4010';
+process.env.MOCK_HTTP_URL = 'http://localhost:4010';
 
 // Or use builder method
 const client = await createClientBuilder()
-  .withMockServer('http://192.168.2.13:4010')
+  .withMockServer('http://localhost:4010')
   .build('openai/gpt-4o');
 ```
 
-## 📚 API Reference
+## 📦 Installation
 
-### Types
+```bash
+npm install @hiddenpath/ai-lib-ts
+# or
+yarn add @hiddenpath/ai-lib-ts
+# or
+pnpm add @hiddenpath/ai-lib-ts
+```
+
+## 🔧 Configuration
+
+The library automatically looks for protocol manifests in:
+
+1. `node_modules/ai-protocol/dist` or `node_modules/@hiddenpath/ai-protocol/dist`
+2. `../ai-protocol/dist`, `./protocols`
+3. GitHub raw `hiddenpath/ai-protocol` (main)
+
+### Provider API Keys
+
+Set API keys via environment variables: `<PROVIDER_ID>_API_KEY`
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export DEEPSEEK_API_KEY="..."
+```
+
+## 🚀 Usage Examples
+
+### Streaming
 
 ```typescript
-// Message types
-interface Message {
-  role: 'system' | 'user' | 'assistant';
-  content: string | ContentBlock[];
-}
+const client = await AiClient.new('anthropic/claude-3-5-sonnet');
 
-// Streaming events
-type StreamingEvent =
-  | { event_type: 'PartialContentDelta'; content: string }
-  | { event_type: 'ToolCallStarted'; tool_call_id: string; tool_name: string }
-  | { event_type: 'StreamEnd'; finish_reason?: string }
-  // ... more event types
+const stream = client
+  .chat([
+    Message.system('You are a helpful assistant.'),
+    Message.user('Tell me a short story.'),
+  ])
+  .stream()
+  .executeStream();
 
-// Tool types
-interface ToolDefinition {
-  name: string;
-  description?: string;
-  parameters: unknown;
-  strict?: boolean;
+for await (const event of stream) {
+  if (event.event_type === 'PartialContentDelta') {
+    process.stdout.write(event.content);
+  }
 }
 ```
 
-### Client
+### Tool Calling
 
 ```typescript
-// Create client
-const client = await AiClient.new('provider/model-name');
+import { Tool } from '@hiddenpath/ai-lib-ts';
 
-// Chat request
+const weatherTool = Tool.define(
+  'get_weather',
+  {
+    type: 'object',
+    properties: {
+      location: { type: 'string', description: 'City name' },
+      unit: { type: 'string', enum: ['celsius', 'fahrenheit'] },
+    },
+    required: ['location'],
+  },
+  'Get current weather for a location'
+);
+
 const response = await client
-  .chat(messages)
-  .temperature(0.7)
-  .maxTokens(1000)
-  .tools([...])
+  .chat([Message.user("What's the weather in Tokyo?")])
+  .tools([weatherTool])
   .execute();
 
-// Streaming
-const stream = client.chat(messages).stream().executeStream();
-for await (const event of stream) {
-  // Handle events
+if (response.toolCalls) {
+  for (const tc of response.toolCalls) {
+    console.log(`Call ${tc.function.name}: ${tc.function.arguments}`);
+  }
 }
 ```
 
-## 🔗 Related Projects
+### Client Builder with Fallbacks
 
-- [AI-Protocol](https://github.com/hiddenpath/ai-protocol) - Provider-agnostic specification
-- [ai-lib-rust](https://github.com/hiddenpath/ai-lib-rust) - Rust runtime implementation
+```typescript
+const client = await createClientBuilder()
+  .withFallbacks(['anthropic/claude-3-5-sonnet', 'deepseek/deepseek-chat'])
+  .withTimeout(30000)
+  .build('openai/gpt-4o');
+```
+
+### Resilience (Retry, Circuit Breaker, Rate Limiter)
+
+```typescript
+import {
+  createClientBuilder,
+  RetryPolicy,
+  CircuitBreaker,
+  RateLimiter,
+  Backpressure,
+} from '@hiddenpath/ai-lib-ts';
+
+const client = await createClientBuilder()
+  .withRetry(RetryPolicy.fromConfig({ maxRetries: 5 }))
+  .withCircuitBreaker(new CircuitBreaker({ failureThreshold: 5 }))
+  .withRateLimiter(RateLimiter.fromRps(10))
+  .withBackpressure(new Backpressure({ maxConcurrent: 20 }))
+  .build('openai/gpt-4o');
+```
+
+### PreflightChecker (Request Gating)
+
+```typescript
+import { PreflightChecker, CircuitBreaker, RateLimiter, Backpressure } from '@hiddenpath/ai-lib-ts';
+
+const checker = new PreflightChecker({
+  circuitBreaker: new CircuitBreaker(),
+  rateLimiter: RateLimiter.fromRps(10),
+  backpressure: new Backpressure({ maxConcurrent: 5 }),
+});
+
+const result = await checker.check();
+if (result.passed) {
+  try {
+    const response = await client.chat([Message.user('Hi')]).execute();
+    checker.onSuccess();
+    console.log(response.content);
+  } catch (e) {
+    checker.onFailure();
+    throw e;
+  } finally {
+    result.release();
+  }
+}
+```
+
+### Batch Processing
+
+```typescript
+import { BatchExecutor, batchExecute } from '@hiddenpath/ai-lib-ts';
+
+const op = async (question: string) => {
+  const client = await AiClient.new('openai/gpt-4o');
+  const r = await client.chat([Message.user(question)]).execute();
+  return r.content;
+};
+
+const result = await batchExecute(
+  ['What is AI?', 'What is Python?', 'What is async?'],
+  op,
+  { maxConcurrent: 5 }
+);
+
+console.log(`Successful: ${result.successfulCount}`);
+console.log(`Failed: ${result.failedCount}`);
+```
+
+### Token Estimation and Cost
+
+```typescript
+import { estimateTokens, estimateCost } from '@hiddenpath/ai-lib-ts';
+
+const tokens = estimateTokens('Hello, how are you?');
+console.log(`Tokens: ${tokens}`);
+
+const cost = estimateCost({
+  inputTokens: 1000,
+  outputTokens: 500,
+  model: 'gpt-4o',
+});
+console.log(`Cost: $${cost.totalCost}`);
+```
+
+### Embeddings
+
+```typescript
+import { EmbeddingClient } from '@hiddenpath/ai-lib-ts';
+
+const client = await EmbeddingClient.new('openai/text-embedding-3-small');
+const response = await client.embed('Hello, world!');
+console.log(`Dimensions: ${response.embeddings[0].vector.length}`);
+```
+
+### Stream Cancellation
+
+```typescript
+const { stream, cancelHandle } = client
+  .chat([Message.user('Write a long story...')])
+  .stream()
+  .executeStreamWithCancel();
+
+// In another task: cancelHandle.cancel()
+for await (const event of stream) {
+  if (event.event_type === 'PartialContentDelta') {
+    process.stdout.write(event.content);
+  }
+}
+```
+
+### Pipeline.fromManifest
+
+```typescript
+import { Pipeline, ProtocolLoader } from '@hiddenpath/ai-lib-ts';
+
+const loader = new ProtocolLoader();
+const manifest = await loader.load('openai/gpt-4o');
+const pipeline = Pipeline.fromManifest(manifest);
+const events = pipeline.process(chunk);
+```
+
+## Supported Providers
+
+| Provider   | Models        | Streaming | Tools | Vision |
+|------------|---------------|-----------|-------|--------|
+| OpenAI     | GPT-4o, GPT-4 | ✅        | ✅    | ✅     |
+| Anthropic  | Claude 3.5    | ✅        | ✅    | ✅     |
+| DeepSeek   | DeepSeek Chat | ✅        | ✅    | ❌     |
+
+## API Reference
+
+### Core Classes
+
+- **`AiClient`**: Main entry point for AI model interaction
+- **`Message`**: Chat message with role and content
+- **`ContentBlock`**: Multimodal content blocks
+- **`Tool`**: Tool/function definition
+- **`StreamingEvent`**: Events from streaming responses
+
+### Resilience Classes
+
+- **`RetryPolicy`**: Exponential backoff with jitter
+- **`CircuitBreaker`**: Circuit breaker pattern
+- **`RateLimiter`**: Token bucket rate limiting
+- **`Backpressure`**: Concurrency limiting
+- **`PreflightChecker`**: Unified request gating
+
+### Routing Classes
+
+- **`ModelManager`**: Centralized model management
+- **`ModelArray`**: Load balancing across endpoints
+- **`CostBasedSelector`**, **`QualityBasedSelector`**, **`RoundRobinSelector`**
+
+### Batch Classes
+
+- **`BatchExecutor`**: Parallel execution with concurrency control
+- **`BatchCollector`**: Request grouping for batch processing
+
+### Extras
+
+- **`EmbeddingClient`**: Embedding generation
+- **`MemoryCache`**: In-memory cache with TTL
+- **`SttClient`**, **`TtsClient`**, **`RerankerClient`**: Multimodal extras
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        AiClient                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │ ChatBuilder │  │  Resilience │  │    Protocol         │  │
+│  │             │  │  (optional) │  │    Loader           │  │
+│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
+└─────────┼────────────────┼───────────────────┼──────────────┘
+          │                │                   │
+          ▼                ▼                   ▼
+┌─────────────────┐ ┌──────────────┐ ┌─────────────────────┐
+│   HttpTransport │ │   Pipeline   │ │  ProtocolManifest   │
+│   (fetch)       │ │   (decode→   │ │  (YAML/JSON)        │
+│                 │ │   select→    │ │                     │
+│                 │ │   map)       │ │                     │
+└─────────────────┘ └──────────────┘ └─────────────────────┘
+```
+
+## 🧪 Development
+
+```bash
+git clone https://github.com/hiddenpath/ai-lib-ts.git
+cd ai-lib-ts
+
+npm install
+npm run build
+npm test
+```
+
+## Project Structure
+
+```
+ai-lib-ts/
+├── src/
+│   ├── index.ts           # Package exports
+│   ├── types/             # Message, ContentBlock, StreamingEvent, Tool
+│   ├── protocol/          # Loader, Validator, V2
+│   ├── transport/         # HttpTransport
+│   ├── pipeline/          # Decoder, Selector, EventMapper
+│   ├── client/            # AiClient, ChatBuilder
+│   ├── resilience/        # Retry, CircuitBreaker, RateLimiter, Backpressure, PreflightChecker
+│   ├── routing/           # ModelManager, ModelArray, Selectors
+│   ├── negotiation/        # FallbackChain, firstSuccess, parallelAll
+│   ├── embeddings/        # EmbeddingClient
+│   ├── cache/             # MemoryCache
+│   ├── batch/             # BatchExecutor, BatchCollector
+│   ├── stt/               # SttClient
+│   ├── tts/               # TtsClient
+│   ├── rerank/            # RerankerClient
+│   ├── plugins/           # PluginRegistry, HookManager
+│   ├── mcp/               # McpToolBridge
+│   └── errors/            # Standard error codes
+├── tests/
+└── package.json
+```
+
+## 📖 Related Projects
+
+- [AI-Protocol](https://github.com/hiddenpath/ai-protocol) - Protocol specification (v1.5 / V2)
 - [ai-lib-python](https://github.com/hiddenpath/ai-lib-python) - Python runtime implementation
+- [ai-lib-rust](https://github.com/hiddenpath/ai-lib-rust) - Rust runtime implementation
 - [ai-protocol-mock](https://github.com/hiddenpath/ai-protocol-mock) - Unified mock server
 
 ## 📄 License
 
-Licensed under either of
+This project is licensed under either of:
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- MIT License ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
 
-### Contribution
+---
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be dual licensed as above, without any additional terms or conditions.
+**ai-lib-ts** - Where protocol meets TypeScript. 📘✨

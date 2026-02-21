@@ -135,6 +135,8 @@ export {
   RateLimiter,
   Backpressure,
   BackpressureError,
+  PreflightChecker,
+  PreflightError,
 } from './resilience/index.js';
 
 export type {
@@ -146,6 +148,9 @@ export type {
   CircuitStats,
   RateLimiterConfig,
   BackpressureConfig,
+  PreflightConfig,
+  PreflightResult,
+  PreflightCheckerOptions,
 } from './resilience/index.js';
 
 // Pipeline
@@ -219,6 +224,20 @@ export { jsonObjectConfig, jsonSchemaConfig, toOpenAIResponseFormat } from './st
 export type { JsonMode, JsonModeConfig } from './structured/index.js';
 
 export { estimateTokens, estimateCost } from './tokens/index.js';
+
+export {
+  BatchExecutor,
+  batchExecute,
+  BatchCollector,
+  createBatchConfig,
+  batchConfigForEmbeddings,
+  batchConfigForChat,
+} from './batch/index.js';
+export type {
+  BatchResult,
+  BatchExecutorOptions,
+  BatchConfig,
+} from './batch/index.js';
 
 // Streaming
 export { CancelHandle } from './streaming/cancel.js';

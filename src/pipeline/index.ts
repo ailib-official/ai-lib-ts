@@ -6,6 +6,7 @@
  */
 
 import type { StreamingEvent } from '../types/index.js';
+import type { ProtocolManifest } from '../protocol/manifest.js';
 
 /**
  * Pipeline operator interface
@@ -323,6 +324,17 @@ export class Pipeline {
           createOpenAiEventMapper()
         );
     }
+  }
+
+  /**
+   * Create pipeline from protocol manifest.
+   * Infers decoder/event mapper from manifest streaming config and provider id.
+   */
+  static fromManifest(manifest: ProtocolManifest): Pipeline {
+    const providerId = manifest.id?.toLowerCase() ?? '';
+    const format =
+      providerId.includes('anthropic') ? 'anthropic_sse' : 'openai_sse';
+    return Pipeline.forProvider(format);
   }
 }
 

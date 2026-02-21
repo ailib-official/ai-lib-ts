@@ -157,6 +157,7 @@ export interface UnifiedRequest {
   messages: Array<{
     role: string;
     content: string | unknown[];
+    tool_call_id?: string;
   }>;
   stream?: boolean;
   temperature?: number;

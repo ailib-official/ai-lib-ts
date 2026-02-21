@@ -24,6 +24,13 @@ describe('Message', () => {
     expect(msg.content).toBe('Hi there!');
   });
 
+  it('should create a tool result message', () => {
+    const msg = Message.tool('call_abc123', '42');
+    expect(msg.role).toBe('tool');
+    expect(msg.content).toBe('42');
+    expect(msg.tool_call_id).toBe('call_abc123');
+  });
+
   it('should create a message with custom content', () => {
     const blocks = [ContentBlock.text('Hello'), ContentBlock.imageUrl('http://example.com/img.png')];
     const msg = Message.withContent('user', blocks);

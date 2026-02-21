@@ -122,9 +122,11 @@ const clientWithFallbacks = await createClientBuilder()
 - **Loader**: Load protocol manifests from local files, npm packages, or remote URLs
 - **Validator**: Validate manifests against JSON Schema
 - **Manifest**: Strongly typed protocol configuration structures
+- **V2**: ManifestV2 types, parseManifestV2, loadManifestV2FromUrl
 
 ### Transport Layer (`transport/`)
 - **HttpTransport**: HTTP client with retry, timeout, and streaming support
+- **Resilience**: RetryPolicy, CircuitBreaker, RateLimiter, Backpressure (injectable)
 - Native `fetch` API for maximum compatibility
 
 ### Pipeline Layer (`pipeline/`)
@@ -136,6 +138,16 @@ const clientWithFallbacks = await createClientBuilder()
 - **AiClient**: Main entry point for AI interactions
 - **AiClientBuilder**: Configure clients with custom options
 - **ChatBuilder**: Fluent API for building chat requests
+- **CancelHandle**: executeStreamWithCancel() for cancellable streaming
+
+### Extended Modules (v0.3.0+)
+- **Resilience**: RetryPolicy, CircuitBreaker, RateLimiter, Backpressure
+- **Routing**: ModelManager, CostBasedSelector, QualityBasedSelector, ModelArray
+- **Negotiation**: FallbackChain, firstSuccess, parallelAll
+- **Multimodal**: SttClient, TtsClient, RerankerClient; ContentBlock (video, omni)
+- **Extras**: EmbeddingClient, MemoryCache, jsonObjectConfig, estimateTokens
+- **Plugins**: PluginRegistry, HookManager
+- **MCP**: McpToolBridge (MCP tools ↔ AI-Protocol format)
 
 ## 📋 Standard Error Codes (V2)
 

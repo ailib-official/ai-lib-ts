@@ -68,10 +68,15 @@ export const Tool = {
    * Parse a tool call's arguments
    */
   parseArguments(toolCall: ToolCall): ParsedToolCall {
+    const func = toolCall?.function;
+    if (!func) {
+      throw new Error('Invalid tool call: missing function');
+    }
+    const argsStr = func.arguments ?? '{}';
     return {
       id: toolCall.id,
-      name: toolCall.function.name,
-      arguments: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
+      name: func.name,
+      arguments: JSON.parse(argsStr) as Record<string, unknown>,
     };
   },
 

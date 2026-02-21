@@ -132,6 +132,14 @@ export const StreamingEvent = {
     }
     return event;
   },
+
+  finalCandidate(candidateIndex: number, finishReason: string): StreamingEvent {
+    return {
+      event_type: 'FinalCandidate',
+      candidate_index: candidateIndex,
+      finish_reason: finishReason,
+    };
+  },
 };
 
 /**

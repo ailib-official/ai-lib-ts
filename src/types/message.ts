@@ -22,12 +22,32 @@ export interface AudioSource {
 }
 
 /**
+ * Video source for multimodal content (V2 extension)
+ */
+export interface VideoSource {
+  type: string;
+  media_type?: string;
+  data: string; // base64 encoded or URL
+}
+
+/**
+ * Omni block source (multi-modal container, V2 extension)
+ */
+export interface OmniSource {
+  type: string;
+  media_type?: string;
+  data: string;
+}
+
+/**
  * Content block for multimodal or tool results
  */
 export type ContentBlock =
   | { type: 'text'; text: string }
   | { type: 'image'; source: ImageSource }
   | { type: 'audio'; source: AudioSource }
+  | { type: 'video'; source: VideoSource }
+  | { type: 'omni'; sources: OmniSource[] }
   | { type: 'tool_use'; id: string; name: string; input: unknown }
   | { type: 'tool_result'; tool_use_id: string; content: unknown };
 
@@ -143,6 +163,23 @@ export const ContentBlock = {
         data: url,
       },
     };
+  },
+
+  /**
+   * Create a video content block (V2 extension)
+   */
+  videoBase64(data: string, mediaType?: string): ContentBlock {
+    return {
+      type: 'video',
+      source: { type: 'base64', media_type: mediaType, data },
+    };
+  },
+
+  /**
+   * Create an omni block with multiple sources (V2 extension)
+   */
+  omni(sources: OmniSource[]): ContentBlock {
+    return { type: 'omni', sources };
   },
 };
 

@@ -1,0 +1,46 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.0] - 2026-02-21
+
+### Added
+
+- **Resilience**: RetryPolicy, CircuitBreaker, RateLimiter, Backpressure; integrated into HttpTransport
+- **Routing**: ModelManager, CostBasedSelector, QualityBasedSelector, ModelArray, modelSupports
+- **Negotiation**: FallbackChain, firstSuccess, parallelAll
+- **Multimodal**: SttClient, TtsClient, RerankerClient; ContentBlock extensions (video, omni)
+- **Extras**: EmbeddingClient, MemoryCache, jsonObjectConfig/jsonSchemaConfig, estimateTokens/estimateCost
+- **Protocol V2**: ManifestV2 types, parseManifestV2, loadManifestV2FromUrl, loadManifestV2FromPath
+- **Streaming**: CancelHandle, executeStreamWithCancel(), Transport AbortSignal support
+- **Plugins**: PluginRegistry, HookManager
+- **MCP**: McpToolBridge (MCP tools ↔ AI-Protocol ToolDefinition format)
+
+### Changed
+
+- HttpTransport: optional ResilienceConfig (retry, circuit breaker, rate limiter, backpressure)
+- Transport executeStream: accepts optional `{ signal?: AbortSignal }` for cancellation
+- ChatBuilder: new `executeStreamWithCancel()` returns `{ stream, cancelHandle }`
+
+### Fixed
+
+- CircuitBreaker type resolution for optional timeoutSeconds
+- RetryPolicy: Array access return type in selectors
+
+## [0.1.0] - 2026-02-XX
+
+### Added
+
+- Initial release: core chat, streaming, tool calling, manifest loading
+- ProtocolLoader, ProtocolValidator
+- HttpTransport with fetch and SSE streaming
+- AiClient, AiClientBuilder, ChatBuilder
+- Pipeline: Decoder, Selector, EventMapper
+- Standard error codes (13 codes)
+- V1 manifest support
+
+[0.3.0]: https://github.com/hiddenpath/ai-lib-ts/releases/tag/v0.3.0
+[0.1.0]: https://github.com/hiddenpath/ai-lib-ts/releases/tag/v0.1.0

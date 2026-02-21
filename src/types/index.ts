@@ -9,7 +9,14 @@
 
 // Re-export all types and values from submodules
 export { Message, ContentBlock, guessMediaType } from './message.js';
-export type { MessageRole, MessageContent, ImageSource, AudioSource } from './message.js';
+export type {
+  MessageRole,
+  MessageContent,
+  ImageSource,
+  AudioSource,
+  VideoSource,
+  OmniSource,
+} from './message.js';
 
 export { StreamingEvent, TerminationReason } from './events.js';
 export type { TerminationReasonType } from './events.js';

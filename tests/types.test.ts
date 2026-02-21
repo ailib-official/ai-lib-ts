@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { Message, ContentBlock, guessMediaType } from '../src/types/index.ts';
+import { Message, ContentBlock, guessMediaType, Tool } from '../src/types/index.ts';
 
 describe('Message', () => {
   it('should create a system message', () => {
@@ -102,5 +102,43 @@ describe('guessMediaType', () => {
   it('should return undefined for unknown types', () => {
     expect(guessMediaType('file.xyz')).toBeUndefined();
     expect(guessMediaType('file')).toBeUndefined();
+  });
+});
+
+describe('Tool', () => {
+  it('should parse valid tool call arguments', () => {
+    const toolCall = {
+      id: 'call_1',
+      type: 'function' as const,
+      function: { name: 'get_weather', arguments: '{"location":"Tokyo"}' },
+    };
+    const parsed = Tool.parseArguments(toolCall);
+    expect(parsed.id).toBe('call_1');
+    expect(parsed.name).toBe('get_weather');
+    expect(parsed.arguments).toEqual({ location: 'Tokyo' });
+  });
+
+  it('should handle missing arguments with empty object', () => {
+    const toolCall = {
+      id: 'call_1',
+      type: 'function' as const,
+      function: { name: 'get_weather', arguments: undefined as unknown as string },
+    };
+    const parsed = Tool.parseArguments(toolCall);
+    expect(parsed.arguments).toEqual({});
+  });
+
+  it('should throw on missing function', () => {
+    const toolCall = { id: 'call_1', type: 'function' as const, function: undefined as unknown };
+    expect(() => Tool.parseArguments(toolCall as never)).toThrow('Invalid tool call: missing function');
+  });
+
+  it('should return null for invalid JSON in tryParseArguments', () => {
+    const toolCall = {
+      id: 'call_1',
+      type: 'function' as const,
+      function: { name: 'get_weather', arguments: 'invalid json' },
+    };
+    expect(Tool.tryParseArguments(toolCall)).toBeNull();
   });
 });

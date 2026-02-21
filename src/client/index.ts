@@ -9,6 +9,7 @@ import type { ProtocolManifest, UnifiedRequest } from '../protocol/index.js';
 import { ProtocolLoader } from '../protocol/index.js';
 import { HttpTransport, MOCK_SERVER_URL } from '../transport/index.js';
 import type { TransportOptions, CallStats } from '../transport/index.js';
+import { CancelHandle } from '../streaming/cancel.js';
 
 /**
  * Client builder options
@@ -127,6 +128,21 @@ export class ChatBuilder {
   executeStream(): AsyncGenerator<StreamingEvent, CallStats, unknown> {
     return this.client.executeChatStream({ ...this.options, stream: true });
   }
+
+  /**
+   * Execute streaming with cancel support
+   */
+  executeStreamWithCancel(): {
+    stream: AsyncGenerator<StreamingEvent, CallStats, unknown>;
+    cancelHandle: CancelHandle;
+  } {
+    const cancelHandle = new CancelHandle();
+    const stream = this.client.executeChatStream(
+      { ...this.options, stream: true },
+      { signal: cancelHandle.signal }
+    );
+    return { stream, cancelHandle };
+  }
 }
 
 /**
@@ -167,9 +183,12 @@ export class AiClient {
     };
   }
 
-  async *executeChatStream(options: ChatOptions): AsyncGenerator<StreamingEvent, CallStats, unknown> {
+  async *executeChatStream(
+    options: ChatOptions,
+    streamOptions?: { signal?: AbortSignal }
+  ): AsyncGenerator<StreamingEvent, CallStats, unknown> {
     const request = this.buildRequest(options);
-    return yield* this.transport.executeStream(request);
+    return yield* this.transport.executeStream(request, streamOptions);
   }
 
   private buildRequest(options: ChatOptions): UnifiedRequest {

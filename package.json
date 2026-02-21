@@ -1,6 +1,6 @@
 {
   "name": "@hiddenpath/ai-lib-ts",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Official TypeScript Runtime for AI-Protocol - Unified AI model interaction for Node.js and the npm ecosystem",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -63,7 +63,11 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "eslint": "^10.0.1",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

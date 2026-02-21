@@ -86,6 +86,12 @@ describe('AiLibError', () => {
     expect(error.retryable).toBe(false);
   });
 
+  it('should create validation error with context', () => {
+    const error = AiLibError.validation('Invalid field', { field: 'email' });
+    expect(error.code).toBe(StandardErrorCode.INVALID_REQUEST);
+    expect(error.context).toEqual({ field: 'email' });
+  });
+
   it('should create timeout error', () => {
     const error = AiLibError.timeout('Request timed out after 30s');
     expect(error.code).toBe(StandardErrorCode.TIMEOUT);

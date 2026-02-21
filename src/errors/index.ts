@@ -45,6 +45,7 @@ export interface ErrorMeta {
   httpStatus?: number;
   providerCode?: string;
   message: string;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -116,6 +117,7 @@ export class AiLibError extends Error {
     this.fallbackable = meta.fallbackable;
     this.httpStatus = meta.httpStatus;
     this.providerCode = meta.providerCode;
+    this.context = meta.context;
 
     // Maintain proper stack trace in V8 environments
     if (Error.captureStackTrace) {
@@ -143,16 +145,13 @@ export class AiLibError extends Error {
    * Create a validation error
    */
   static validation(message: string, context?: Record<string, unknown>): AiLibError {
-    const error = new AiLibError({
+    return new AiLibError({
       code: StandardErrorCode.INVALID_REQUEST,
       retryable: false,
       fallbackable: false,
       message,
+      context,
     });
-    if (context) {
-      Object.assign(error, { context });
-    }
-    return error;
   }
 
   /**

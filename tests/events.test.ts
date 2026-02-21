@@ -62,6 +62,13 @@ describe('StreamingEvent', () => {
     expect(event.error).toEqual(error);
     expect(event.event_id).toBe('evt_001');
   });
+
+  it('should create FinalCandidate event', () => {
+    const event = StreamingEvent.finalCandidate(0, 'stop');
+    expect(event.event_type).toBe('FinalCandidate');
+    expect(event.candidate_index).toBe(0);
+    expect(event.finish_reason).toBe('stop');
+  });
 });
 
 describe('TerminationReason', () => {

@@ -5,13 +5,36 @@
  */
 
 import type { ProtocolManifest, UnifiedRequest, UnifiedResponse } from '../protocol/manifest.js';
-import { AiLibError, isRetryable } from '../errors/index.js';
+import { AiLibError } from '../errors/index.js';
 import type { StreamingEvent } from '../types/index.js';
+import {
+  RetryPolicy,
+  retryConfigFromProtocol,
+  CircuitBreaker,
+  RateLimiter,
+  Backpressure,
+} from '../resilience/index.js';
+import type {
+  RetryConfig,
+  CircuitBreakerConfig,
+  RateLimiterConfig,
+  BackpressureConfig,
+} from '../resilience/index.js';
 
 /**
  * Mock server URL for testing (priority: 192.168.2.13)
  */
 export const MOCK_SERVER_URL = process.env.MOCK_HTTP_URL ?? 'http://192.168.2.13:4010';
+
+/**
+ * Resilience configuration for transport
+ */
+export interface ResilienceConfig {
+  retryConfig?: RetryConfig;
+  circuitBreaker?: CircuitBreakerConfig;
+  rateLimiter?: RateLimiterConfig;
+  backpressure?: BackpressureConfig;
+}
 
 /**
  * Transport options
@@ -21,6 +44,7 @@ export interface TransportOptions {
   timeout?: number;
   headers?: Record<string, string>;
   proxyUrl?: string;
+  resilience?: ResilienceConfig;
 }
 
 /**
@@ -54,6 +78,10 @@ export class HttpTransport {
   private readonly options: TransportOptions;
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
+  private readonly retryPolicy: RetryPolicy;
+  private readonly circuitBreaker?: CircuitBreaker;
+  private readonly rateLimiter?: RateLimiter;
+  private readonly backpressure?: Backpressure;
 
   constructor(manifest: ProtocolManifest, options: TransportOptions = {}) {
     this.manifest = manifest;
@@ -71,6 +99,22 @@ export class HttpTransport {
 
     // Add authentication header
     this.addAuthHeader();
+
+    // Resilience: merge protocol + options
+    const retryConfig =
+      options.resilience?.retryConfig ??
+      retryConfigFromProtocol(manifest.retry_policy);
+    this.retryPolicy = new RetryPolicy(retryConfig);
+
+    if (options.resilience?.circuitBreaker) {
+      this.circuitBreaker = new CircuitBreaker(options.resilience.circuitBreaker);
+    }
+    if (options.resilience?.rateLimiter) {
+      this.rateLimiter = new RateLimiter(options.resilience.rateLimiter);
+    }
+    if (options.resilience?.backpressure) {
+      this.backpressure = new Backpressure(options.resilience.backpressure);
+    }
   }
 
   /**
@@ -173,21 +217,12 @@ export class HttpTransport {
     const endpoint = this.getChatEndpoint();
     const url = `${this.baseUrl}${endpoint}`;
 
-    let retryCount = 0;
-    let lastError: AiLibError | null = null;
+    const doRequest = async (): Promise<TransportResponse<UnifiedResponse>> => {
+      const controller = new AbortController();
+      const timeout = this.options.timeout ?? 60000;
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    // Get max retries from retry policy
-    const maxRetries = this.manifest.retry_policy?.max_retries ?? 3;
-
-    while (retryCount <= maxRetries) {
       try {
-        const controller = new AbortController();
-        const timeout = this.options.timeout ?? 60000;
-
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-        }, timeout);
-
         const response = await fetch(url, {
           method: 'POST',
           headers: this.headers,
@@ -206,43 +241,61 @@ export class HttpTransport {
         }
 
         const data = (await response.json()) as UnifiedResponse;
-
         return {
           data,
           stats: {
             latencyMs: Date.now() - startTime,
-            retryCount,
+            retryCount: 0,
             endpoint,
             requestId: response.headers.get('x-request-id') ?? undefined,
             usage: data.usage,
           },
         };
-      } catch (error) {
-        lastError = this.normalizeError(error);
-
-        // Check if retryable
-        if (!isRetryable(lastError.code)) {
-          throw lastError;
-        }
-
-        retryCount++;
-
-        if (retryCount <= maxRetries) {
-          // Exponential backoff with jitter
-          const delay = this.calculateDelay(retryCount);
-          await this.sleep(delay);
-        }
+      } catch (e) {
+        clearTimeout(timeoutId);
+        throw this.normalizeError(e);
       }
+    };
+
+    let op: () => Promise<TransportResponse<UnifiedResponse>> = doRequest;
+
+    if (this.rateLimiter?.isLimited) {
+      const inner = op;
+      op = async () => {
+        await this.rateLimiter!.acquire();
+        return inner();
+      };
     }
 
-    throw lastError ?? AiLibError.unknown('All retries exhausted');
+    if (this.backpressure?.isLimited) {
+      const inner = op;
+      op = () => this.backpressure!.execute(inner);
+    }
+
+    if (this.circuitBreaker) {
+      const inner = op;
+      op = () => this.circuitBreaker!.execute(inner);
+    }
+
+    const result = await this.retryPolicy.execute(op);
+
+    if (!result.success) {
+      throw result.error ?? AiLibError.unknown('All retries exhausted');
+    }
+
+    const resp = result.value!;
+    resp.stats.retryCount = result.attempts - 1;
+    return resp;
   }
 
   /**
    * Execute a streaming request
+   * @param request - Chat request
+   * @param options - Optional AbortSignal for cancellation
    */
   async *executeStream(
-    request: UnifiedRequest
+    request: UnifiedRequest,
+    options?: { signal?: AbortSignal }
   ): AsyncGenerator<StreamingEvent, CallStats, unknown> {
     const startTime = Date.now();
     const endpoint = this.getChatEndpoint();
@@ -254,9 +307,13 @@ export class HttpTransport {
     const controller = new AbortController();
     const timeout = this.options.timeout ?? 120000;
 
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, timeout);
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    // Combine external signal with our controller
+    const externalSignal = options?.signal;
+    if (externalSignal) {
+      externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
 
     let requestId: string | undefined;
     let usage: CallStats['usage'];
@@ -446,31 +503,6 @@ export class HttpTransport {
     return AiLibError.unknown(String(error));
   }
 
-  /**
-   * Calculate delay for exponential backoff with jitter
-   */
-  private calculateDelay(retryCount: number): number {
-    const policy = this.manifest.retry_policy;
-    const minDelay = policy?.min_delay_ms ?? 1000;
-    const maxDelay = policy?.max_delay_ms ?? 60000;
-    const jitter = policy?.jitter ?? 'full';
-
-    const baseDelay = Math.min(minDelay * Math.pow(2, retryCount - 1), maxDelay);
-
-    if (jitter === 'none') {
-      return baseDelay;
-    }
-
-    const jitterRange = jitter === 'full' ? baseDelay : baseDelay / 2;
-    return baseDelay - jitterRange / 2 + Math.random() * jitterRange;
-  }
-
-  /**
-   * Sleep utility
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }
 
 /**

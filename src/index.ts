@@ -249,3 +249,75 @@ export type { Plugin, PluginContext, HookType } from './plugins/index.js';
 // MCP
 export { McpToolBridge } from './mcp/index.js';
 export type { McpToolBridgeOptions, McpTool, McpToolInvocation, McpToolResult, McpServerSpec } from './mcp/index.js';
+
+// Telemetry
+export {
+  Feedback,
+  getFeedbackRequestId,
+  FeedbackSink,
+  NoopFeedbackSink,
+ noopSink,
+  InMemoryFeedbackSink,
+  ConsoleFeedbackSink,
+  CompositeFeedbackSink,
+  getGlobalSink,
+  setGlobalSink,
+  reportFeedback,
+  reportFeedbackBatch,
+} from './telemetry/index.js';
+
+export type {
+  FeedbackEvent,
+  ChoiceSelectionFeedback,
+  ThumbsFeedback,
+  RatingFeedback,
+  TextFeedback,
+  CorrectionFeedback,
+  RegenerateFeedback,
+  StopFeedback,
+  ChoiceSelectionFeedbackBuilder,
+  RatingFeedbackBuilder,
+  ThumbsFeedbackBuilder,
+  TextFeedbackBuilder,
+  CorrectionFeedbackBuilder,
+  RegenerateFeedbackBuilder,
+  StopFeedbackBuilder,
+} from './telemetry/index.js';
+
+// Interceptors
+export {
+  InterceptorPipeline,
+  BaseInterceptor,
+  createInterceptorPipeline,
+  LoggingInterceptor,
+  MetricsInterceptor,
+  TimingInterceptor,
+} from './interceptors/index.js';
+
+export type {
+  Interceptor,
+  RequestContext,
+  ResponseContext,
+  UnifiedRequest as InterceptorRequest,
+  UnifiedResponse as InterceptorResponse,
+  AiLibError as InterceptorError,
+} from './interceptors/index.js';
+
+// Guardrails
+export {
+  Guardrails,
+  GuardrailsConfig,
+  GuardrailsConfigBuilder,
+  KeywordFilter,
+  PatternFilter,
+  PiiDetector,
+  FilterAction,
+  FilterRule,
+} from './guardrails/index.js';
+
+export type {
+  CheckResult,
+  Violation,
+  ViolationType,
+  ContentFilter,
+} from './guardrails/index.js';

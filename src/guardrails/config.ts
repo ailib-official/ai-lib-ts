@@ -142,7 +142,7 @@ export class GuardrailsConfigBuilder {
   }
 }
 
-Object.assign(FilterRule, {
+export const FilterRule = {
   keyword(pattern: string, action: FilterAction): FilterRule {
     return {
       pattern,
@@ -160,9 +160,13 @@ Object.assign(FilterRule, {
       action,
     };
   },
-});
+};
 
-Object.assign(GuardrailsConfig, {
+export const GuardrailsConfig = {
+  builder(): GuardrailsConfigBuilder {
+    return GuardrailsConfigBuilder.builder();
+  },
+
   permissive(): GuardrailsConfig {
     return GuardrailsConfig.builder().build();
   },
@@ -179,4 +183,4 @@ Object.assign(GuardrailsConfig, {
       .addKeywordFilter('access_token', FilterAction.Warn)
       .build();
   },
-});
+};

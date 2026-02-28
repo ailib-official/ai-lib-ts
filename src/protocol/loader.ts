@@ -10,9 +10,10 @@ import { ProtocolError } from '../errors/index.js';
  * Default protocol paths
  */
 const DEFAULT_PROTOCOL_PATHS = [
-  'node_modules/ai-protocol/dist',
-  'node_modules/@hiddenpath/ai-protocol/dist',
-  '../ai-protocol/dist',
+  'node_modules/ai-protocol/dist/v1',
+  'node_modules/@hiddenpath/ai-protocol/dist/v1',
+  '../ai-protocol/dist/v1',
+  '../ai-protocol',
   './protocols',
 ];
 
@@ -93,30 +94,24 @@ export class ProtocolLoader {
   async loadProvider(providerId: string): Promise<ProviderManifest> {
     // Try local paths first
     for (const basePath of this.getProtocolPaths()) {
-      try {
-        const manifest = await this.loadFromPath(`${basePath}/providers/${providerId}.json`);
+      const candidates = [
+        `${basePath}/providers/${providerId}.json`,
+        `${basePath}/v1/providers/${providerId}.json`,
+        `${basePath}/providers/${providerId}.yaml`,
+        `${basePath}/v1/providers/${providerId}.yaml`,
+      ];
+      for (const path of candidates) {
+        const manifest = await this.loadFromPath(path);
         if (manifest) {
           return manifest as ProviderManifest;
         }
-      } catch {
-        // Continue to next path
-      }
-
-      // Try YAML version
-      try {
-        const manifest = await this.loadFromPath(`${basePath}/../v1/providers/${providerId}.yaml`);
-        if (manifest) {
-          return manifest as ProviderManifest;
-        }
-      } catch {
-        // Continue to next path
       }
     }
 
     // Try GitHub as fallback
     try {
       const manifest = await this.loadFromUrl(
-        `${GITHUB_RAW_BASE}/dist/providers/${providerId}.json`
+        `${GITHUB_RAW_BASE}/dist/v1/providers/${providerId}.json`
       );
       return manifest as ProviderManifest;
     } catch {
@@ -130,35 +125,28 @@ export class ProtocolLoader {
   async loadModel(providerId: string, modelId: string): Promise<ModelEntry> {
     // Try local paths first
     for (const basePath of this.getProtocolPaths()) {
-      try {
-        const models = await this.loadFromPath(`${basePath}/models/${providerId}.json`);
+      const candidates = [
+        `${basePath}/models/${providerId}.json`,
+        `${basePath}/v1/models/${providerId}.json`,
+        `${basePath}/models/${providerId}.yaml`,
+        `${basePath}/v1/models/${providerId}.yaml`,
+      ];
+      for (const path of candidates) {
+        const models = await this.loadFromPath(path);
         if (models && this.isModelsManifest(models)) {
           const model = models.models[modelId];
           if (model) {
             return model;
           }
         }
-      } catch {
-        // Continue to next path
-      }
-
-      // Try YAML version
-      try {
-        const models = await this.loadFromPath(`${basePath}/../v1/models/${providerId}.yaml`);
-        if (models && this.isModelsManifest(models)) {
-          const model = models.models[modelId];
-          if (model) {
-            return model;
-          }
-        }
-      } catch {
-        // Continue to next path
       }
     }
 
     // Try GitHub as fallback
     try {
-      const models = await this.loadFromUrl(`${GITHUB_RAW_BASE}/dist/models/${providerId}.json`);
+      const models = await this.loadFromUrl(
+        `${GITHUB_RAW_BASE}/dist/v1/models/${providerId}.json`
+      );
       if (models && this.isModelsManifest(models)) {
         const model = models.models[modelId];
         if (model) {
@@ -181,6 +169,10 @@ export class ProtocolLoader {
    */
   private getProtocolPaths(): string[] {
     const paths = [...DEFAULT_PROTOCOL_PATHS];
+    const envPath = process.env.AI_PROTOCOL_PATH ?? process.env.AI_PROTOCOL_DIR;
+    if (envPath) {
+      paths.unshift(envPath);
+    }
     if (this.options.protocolPath) {
       paths.unshift(this.options.protocolPath);
     }

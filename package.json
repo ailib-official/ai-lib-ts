@@ -1,6 +1,6 @@
 {
   "name": "@hiddenpath/ai-lib-ts",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Official TypeScript Runtime for AI-Protocol - Unified AI model interaction for Node.js and the npm ecosystem",
   "type": "module",
   "main": "./dist/index.cjs",

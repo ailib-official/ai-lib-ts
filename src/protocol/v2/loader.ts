@@ -3,6 +3,7 @@
  * Loads and parses V2 three-ring manifests.
  */
 
+import { parse as parseYaml } from 'yaml';
 import type { ManifestV2 } from './types.js';
 
 /**
@@ -16,7 +17,11 @@ export function parseManifestV2(data: unknown): ManifestV2 {
   if (!obj.id || typeof obj.id !== 'string') {
     throw new Error('Manifest must have string "id"');
   }
-  return data as ManifestV2;
+  const normalized = { ...obj } as ManifestV2;
+  if (!normalized.endpoints && normalized.endpoint) {
+    normalized.endpoints = normalized.endpoint;
+  }
+  return normalized;
 }
 
 /**
@@ -37,6 +42,6 @@ export async function loadManifestV2FromUrl(url: string): Promise<ManifestV2> {
 export async function loadManifestV2FromPath(path: string): Promise<ManifestV2> {
   const { readFile } = await import('node:fs/promises');
   const content = await readFile(path, 'utf-8');
-  const data = JSON.parse(content);
+  const data = path.endsWith('.yaml') || path.endsWith('.yml') ? parseYaml(content) : JSON.parse(content);
   return parseManifestV2(data);
 }

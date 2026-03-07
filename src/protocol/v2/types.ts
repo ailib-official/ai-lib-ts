@@ -51,13 +51,16 @@ export interface ComputerUseConfig {
 }
 
 export interface MultimodalConfig {
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  omni_mode?: Record<string, unknown>;
+  // Legacy flattened compatibility
   input_modalities?: string[];
   output_modalities?: string[];
   max_image_size_mb?: number;
   supported_image_formats?: string[];
   audio_formats?: string[];
   video_formats?: string[];
-  omni_mode?: boolean;
 }
 
 export interface ManifestV2 {
@@ -66,6 +69,7 @@ export interface ManifestV2 {
   protocol_version?: string;
   api_style?: ApiStyle;
   auth?: AuthConfigV2;
+  endpoint?: EndpointV2;
   endpoints?: EndpointV2;
   models?: ModelDef[];
   streaming?: StreamingV2;

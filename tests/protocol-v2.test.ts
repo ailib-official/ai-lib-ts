@@ -5,6 +5,9 @@
 import { describe, it, expect } from 'vitest';
 import { Pipeline } from '../src/index.js';
 import { parseManifestV2 } from '../src/index.js';
+import { loadManifestV2FromPath } from '../src/index.js';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('parseManifestV2', () => {
   it('should parse minimal manifest', () => {
@@ -60,5 +63,39 @@ describe('Pipeline.fromManifest', () => {
     expect(events).toHaveLength(1);
     expect(events[0].event_type).toBe('PartialContentDelta');
     expect(events[0].content).toBe('hi');
+  });
+});
+
+describe('latest generative manifest consumption', () => {
+  it('loads latest ai-protocol v2 provider manifests from yaml', async () => {
+    const rootCandidates = [
+      resolve(process.cwd(), '../ai-protocol'),
+      resolve(process.cwd(), '../../ai-protocol'),
+      'd:/ai-protocol',
+    ];
+    const protocolRoot = rootCandidates.find((candidate) => existsSync(candidate));
+    expect(protocolRoot).toBeTruthy();
+
+    const providers = ['google', 'deepseek', 'qwen', 'doubao'];
+    for (const provider of providers) {
+      const manifest = await loadManifestV2FromPath(
+        `${protocolRoot}/v2/providers/${provider}.yaml`
+      );
+      expect(manifest.id).toBe(provider);
+      const endpoint = manifest.endpoint ?? manifest.endpoints;
+      expect(endpoint?.base_url).toBeTruthy();
+
+      const multimodal = (manifest.multimodal ?? {}) as Record<string, unknown>;
+      const input = (multimodal.input ?? {}) as Record<string, unknown>;
+      const output = (multimodal.output ?? {}) as Record<string, unknown>;
+
+      if (provider === 'google' || provider === 'qwen') {
+        const videoIn = (input.video ?? {}) as Record<string, unknown>;
+        expect(videoIn.supported).toBe(true);
+      }
+
+      const videoOut = (output.video ?? {}) as Record<string, unknown>;
+      expect(videoOut.supported ?? false).toBe(false);
+    }
   });
 });

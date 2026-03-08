@@ -40,6 +40,7 @@ function loadCases(): ComplianceCase[] {
   const files = [
     resolve(root, 'tests/compliance/cases/01-protocol-loading/load-valid-provider.yaml'),
     resolve(root, 'tests/compliance/cases/01-protocol-loading/load-v2-p0-generative-providers.yaml'),
+    resolve(root, 'tests/compliance/cases/01-protocol-loading/load-v2-wave1-provider-expansion.yaml'),
   ];
 
   const out: ComplianceCase[] = [];
@@ -87,6 +88,17 @@ describe('protocol_loading compliance', () => {
         | { base_url?: string }
         | undefined;
       expect(typeof endpoint?.base_url).toBe('string');
+
+      if (c.expected.provider_id === 'moonshot') {
+        const multimodal = manifest.multimodal as
+          | {
+              input?: { video?: { supported?: boolean } };
+              output?: { video?: { supported?: boolean } };
+            }
+          | undefined;
+        expect(multimodal?.input?.video?.supported).toBe(true);
+        expect(multimodal?.output?.video?.supported ?? false).toBe(false);
+      }
     });
   }
 });

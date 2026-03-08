@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-03-08
+
+### Added
+
+- Compliance matrix tests activated in `tests/compliance-matrix.test.ts` covering:
+  - message building (`msg-*`)
+  - stream decode / event mapping / tool accumulation (`str-*`)
+  - request parameter mapping (`req-*`)
+  - plus existing retry/loading suites.
+
+### Changed
+
+- Compliance baseline now executes YAML matrix parity checks against ai-protocol fixtures in regular test flows.
+
 ## [0.5.0] - 2026-03-07
 
 ### Added
@@ -77,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standard error codes (13 codes)
 - V1 manifest support
 
+[0.5.1]: https://github.com/hiddenpath/ai-lib-ts/releases/tag/v0.5.1
 [0.5.0]: https://github.com/hiddenpath/ai-lib-ts/releases/tag/v0.5.0
 [0.4.1]: https://github.com/hiddenpath/ai-lib-ts/releases/tag/v0.4.1
 [0.4.0]: https://github.com/hiddenpath/ai-lib-ts/releases/tag/v0.4.0

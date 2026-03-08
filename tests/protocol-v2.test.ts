@@ -34,6 +34,30 @@ describe('parseManifestV2', () => {
     expect(() => parseManifestV2(null)).toThrow('Manifest must be an object');
     expect(() => parseManifestV2({})).toThrow('Manifest must have string "id"');
   });
+
+  it('normalizes endpoint and preserves structured shapes', () => {
+    const manifest = parseManifestV2({
+      id: 'shape-compat',
+      protocol_version: '2.0',
+      endpoint: {
+        base_url: 'https://example.com',
+        chat: { path: '/v2/chat', method: 'POST' },
+      },
+      streaming: {
+        decoder: { format: 'sse', strategy: 'openai_chat' },
+        event_map: [{ match: '$.choices[0]', emit: 'PartialContentDelta' }],
+      },
+      multimodal: {
+        input: { video: { supported: true, formats: ['mp4'] } },
+        output: { video: { supported: false } },
+      },
+    });
+    expect(manifest.endpoints?.base_url).toBe('https://example.com');
+    expect((manifest.endpoints?.chat as { path?: string }).path).toBe('/v2/chat');
+    expect(((manifest.streaming as { decoder?: unknown }).decoder as { format?: string }).format).toBe(
+      'sse'
+    );
+  });
 });
 
 describe('Pipeline.fromManifest', () => {

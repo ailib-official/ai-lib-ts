@@ -171,8 +171,7 @@ export class InterceptorPipeline {
     const result = await fn();
 
     if (result.ok) {
-      if ('success' in result.value) {
-        const responseContext: ResponseContext = { success: (result.value as { success: boolean }).success };
+      if (typeof result.value === 'object' && result.value !== null && 'success' in result.value) {
         await this.onResponse(ctx, req, result.value as UnifiedResponse);
       } else {
         await this.onResponse(ctx, req, result.value as unknown as UnifiedResponse);
@@ -218,15 +217,15 @@ export class LoggingInterceptor extends BaseInterceptor {
     this.logFn = options?.logFn ?? console.log;
   }
 
-  async onRequest(ctx: RequestContext, req: UnifiedRequest): Promise<void> {
+  async onRequest(ctx: RequestContext, _req: UnifiedRequest): Promise<void> {
     this.logFn(`${this.prefix} Request: ${ctx.provider}/${ctx.model} ${ctx.operation}`);
   }
 
-  async onResponse(ctx: RequestContext, _req: UnifiedRequest, resp: UnifiedResponse): Promise<void> {
+  async onResponse(ctx: RequestContext, _req: UnifiedRequest, _resp: UnifiedResponse): Promise<void> {
     this.logFn(`${this.prefix} Response: ${ctx.provider}/${ctx.model} Success`);
   }
 
-  async onError(ctx: RequestContext, req: UnifiedRequest, err: AiLibError): Promise<void> {
+  async onError(ctx: RequestContext, _req: UnifiedRequest, err: AiLibError): Promise<void> {
     this.logFn(`${this.prefix} Error: ${ctx.provider}/${ctx.model} ${err.code}: ${err.message}`);
   }
 }
@@ -260,7 +259,7 @@ export class MetricsInterceptor extends BaseInterceptor {
     this.metrics.set(key, current);
   }
 
-  async onError(ctx: RequestContext, req: UnifiedRequest, err: AiLibError): Promise<void> {
+  async onError(ctx: RequestContext, _req: UnifiedRequest, _err: AiLibError): Promise<void> {
     const key = this.getMetricsKey(ctx);
     const current = this.metrics.get(key) ?? { requests: 0, successes: 0, errors: 0 };
     current.errors++;

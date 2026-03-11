@@ -121,11 +121,11 @@ export class ThumbsFeedbackBuilder {
     this.feedback.isPositive = isPositive;
   }
 
-  thumbsUp(requestId: string): ThumbsFeedback {
+  thumbsUp(_requestId: string): ThumbsFeedback {
     return this.feedback as ThumbsFeedback;
   }
 
-  thumbsDown(requestId: string): ThumbsFeedback {
+  thumbsDown(_requestId: string): ThumbsFeedback {
     return this.feedback as ThumbsFeedback;
   }
 

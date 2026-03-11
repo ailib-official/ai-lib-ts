@@ -145,7 +145,7 @@ export class InterceptorPipeline {
     }
   }
 
-  async onError(ctx: RequestContext, req: UnifiedRequest, err: AiLibError): Promise<void> {
+  async onError(ctx: RequestContext, _req: UnifiedRequest, _err: AiLibError): Promise<void> {
     for (const ic of this.interceptors) {
       if (ic.onError) {
         await ic.onError(ctx, req, err);

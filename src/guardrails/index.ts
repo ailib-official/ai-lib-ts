@@ -14,7 +14,8 @@
  */
 
 export { FilterAction, FilterRule, GuardrailsConfig, GuardrailsConfigBuilder } from './config.js';
-export { CheckResult, Violation, ViolationType } from './result.js';
+export { CheckResult, ViolationType } from './result.js';
+export type { Violation } from './result.js';
 export { KeywordFilter, PatternFilter, type ContentFilter } from './filters.js';
 export { PiiDetector } from './pii.js';
 export { Guardrails } from './guardrails.js';

@@ -13,7 +13,7 @@ import type {
   FeedbackEvent,
   FeedbackSink,
 } from './types.js';
-import { NoopFeedbackSink, noopSink } from './types.js';
+import { noopSink } from './types.js';
 
 /**
  * In-memory feedback sink for testing.

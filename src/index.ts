@@ -254,7 +254,6 @@ export type { McpToolBridgeOptions, McpTool, McpToolInvocation, McpToolResult, M
 export {
   Feedback,
   getFeedbackRequestId,
-  FeedbackSink,
   NoopFeedbackSink,
  noopSink,
   InMemoryFeedbackSink,
@@ -267,6 +266,7 @@ export {
 } from './telemetry/index.js';
 
 export type {
+  FeedbackSink,
   FeedbackEvent,
   ChoiceSelectionFeedback,
   ThumbsFeedback,

@@ -12,7 +12,6 @@ import type { Result } from '../errors/index.js';
 import type {
   FeedbackEvent,
   FeedbackSink,
-  NoopFeedbackSink,
 } from './types.js';
 import { NoopFeedbackSink, noopSink } from './types.js';
 

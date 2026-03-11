@@ -195,7 +195,7 @@ export class AiClient {
     const request: UnifiedRequest = {
       model: this.modelId,
       messages: options.messages.map((m) => {
-        const msg: { role: string; content: unknown; tool_call_id?: string } = {
+        const msg: { role: string; content: string | unknown[]; tool_call_id?: string } = {
           role: m.role,
           content: m.content,
         };

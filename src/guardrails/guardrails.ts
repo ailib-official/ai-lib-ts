@@ -2,7 +2,7 @@
  * Main guardrails controller for content filtering.
  */
 
-import { FilterAction, GuardrailsConfig } from './config.js';
+import { GuardrailsConfig } from './config.js';
 import { KeywordFilter, PatternFilter } from './filters.js';
 import { PiiDetector } from './pii.js';
 import { CheckResult } from './result.js';

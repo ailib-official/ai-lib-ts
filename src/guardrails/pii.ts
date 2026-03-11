@@ -116,7 +116,7 @@ export class PiiDetector {
     let double = false;
 
     for (let i = digits.length - 1; i >= 0; i--) {
-      let d = digits[i];
+      let d = digits[i] ?? 0;
       if (double) {
         d *= 2;
         if (d > 9) d -= 9;

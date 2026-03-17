@@ -72,6 +72,19 @@ export interface RetryPolicy {
 }
 
 /**
+ * Structured capability profile (IOS/IOSPC staged schema).
+ */
+export interface CapabilityProfile {
+  phase: 'ios_v1' | 'iospc_v1';
+  inputs?: Record<string, unknown>;
+  outcomes?: Record<string, unknown>;
+  systems?: Record<string, unknown>;
+  process?: Record<string, unknown>;
+  contract?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
  * Provider capability
  */
 export type ProviderCapability =
@@ -100,6 +113,7 @@ export interface ProviderManifest {
   rate_limit_headers?: RateLimitHeaders;
   retry_policy?: RetryPolicy;
   capabilities?: ProviderCapability[];
+  capability_profile?: CapabilityProfile;
   default_headers?: Record<string, string>;
 }
 

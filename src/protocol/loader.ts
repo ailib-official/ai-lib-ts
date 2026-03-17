@@ -10,6 +10,10 @@ import { ProtocolError } from '../errors/index.js';
  * Default protocol paths
  */
 const DEFAULT_PROTOCOL_PATHS = [
+  'node_modules/ai-protocol/dist/v2',
+  'node_modules/@hiddenpath/ai-protocol/dist/v2',
+  '../ai-protocol/dist/v2',
+  '../ai-protocol/v2',
   'node_modules/ai-protocol/dist/v1',
   'node_modules/@hiddenpath/ai-protocol/dist/v1',
   '../ai-protocol/dist/v1',
@@ -96,8 +100,10 @@ export class ProtocolLoader {
     for (const basePath of this.getProtocolPaths()) {
       const candidates = [
         `${basePath}/providers/${providerId}.json`,
-        `${basePath}/v1/providers/${providerId}.json`,
+        `${basePath}/v2/providers/${providerId}.json`,
         `${basePath}/providers/${providerId}.yaml`,
+        `${basePath}/v2/providers/${providerId}.yaml`,
+        `${basePath}/v1/providers/${providerId}.json`,
         `${basePath}/v1/providers/${providerId}.yaml`,
       ];
       for (const path of candidates) {
@@ -110,9 +116,14 @@ export class ProtocolLoader {
 
     // Try GitHub as fallback
     try {
-      const manifest = await this.loadFromUrl(
-        `${GITHUB_RAW_BASE}/dist/v1/providers/${providerId}.json`
-      );
+      let manifest = await this.loadFromUrl(
+        `${GITHUB_RAW_BASE}/dist/v2/providers/${providerId}.json`
+      ).catch(() => null);
+      if (!manifest) {
+        manifest = await this.loadFromUrl(
+          `${GITHUB_RAW_BASE}/dist/v1/providers/${providerId}.json`
+        );
+      }
       return manifest as ProviderManifest;
     } catch {
       throw new ProtocolError(`Failed to load provider manifest: ${providerId}`);

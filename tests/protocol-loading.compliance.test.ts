@@ -19,6 +19,7 @@ type ComplianceCase = {
     valid?: boolean;
     provider_id?: string;
     protocol_version?: string;
+    errors?: string[];
   };
 };
 
@@ -41,6 +42,7 @@ function loadCases(): ComplianceCase[] {
     resolve(root, 'tests/compliance/cases/01-protocol-loading/load-valid-provider.yaml'),
     resolve(root, 'tests/compliance/cases/01-protocol-loading/load-v2-p0-generative-providers.yaml'),
     resolve(root, 'tests/compliance/cases/01-protocol-loading/load-v2-wave1-provider-expansion.yaml'),
+    resolve(root, 'tests/compliance/cases/01-protocol-loading/load-v2-capability-profile-ios.yaml'),
   ];
 
   const out: ComplianceCase[] = [];
@@ -54,6 +56,27 @@ function loadCases(): ComplianceCase[] {
     }
   }
   return out.filter((c) => c.input?.type === 'protocol_loading');
+}
+
+function iosCapabilityProfileErrors(raw: Record<string, unknown>): string[] {
+  const cp = raw.capability_profile;
+  if (!cp || typeof cp !== 'object') {
+    return [];
+  }
+
+  const profile = cp as Record<string, unknown>;
+  if (profile.phase !== 'ios_v1') {
+    return [];
+  }
+
+  const errors: string[] = [];
+  if ('process' in profile || 'contract' in profile) {
+    errors.push('must NOT have additional properties');
+  }
+  if (!('inputs' in profile) && !('outcomes' in profile) && !('systems' in profile)) {
+    errors.push('must match at least one schema in anyOf');
+  }
+  return errors;
 }
 
 describe('protocol_loading compliance', () => {
@@ -76,7 +99,15 @@ describe('protocol_loading compliance', () => {
           typeof raw?.id === 'string' &&
           typeof raw?.protocol_version === 'string' &&
           typeof (raw?.endpoint as Record<string, unknown> | undefined)?.base_url === 'string';
-        expect(hasRequiredShape).toBe(false);
+        const iosErrors = iosCapabilityProfileErrors(raw);
+        expect(hasRequiredShape && iosErrors.length === 0).toBe(false);
+        const expectedErrors = Array.isArray(c.expected?.errors)
+          ? c.expected.errors.filter((item): item is string => typeof item === 'string')
+          : [];
+        const actualErrorText = iosErrors.join(' | ');
+        for (const expectedError of expectedErrors) {
+          expect(actualErrorText).toContain(expectedError);
+        }
         return;
       }
 

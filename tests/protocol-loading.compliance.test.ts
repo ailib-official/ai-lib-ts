@@ -60,8 +60,11 @@ function loadCases(): ComplianceCase[] {
 
 function iosCapabilityProfileErrors(raw: Record<string, unknown>): string[] {
   const cp = raw.capability_profile;
-  if (!cp || typeof cp !== 'object') {
+  if (cp === undefined || cp === null) {
     return [];
+  }
+  if (typeof cp !== 'object') {
+    return ['capability_profile must be object'];
   }
 
   const profile = cp as Record<string, unknown>;

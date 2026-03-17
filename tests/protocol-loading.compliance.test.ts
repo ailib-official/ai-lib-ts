@@ -58,7 +58,7 @@ function loadCases(): ComplianceCase[] {
   return out.filter((c) => c.input?.type === 'protocol_loading');
 }
 
-function iosCapabilityProfileErrors(raw: Record<string, unknown>): string[] {
+function capabilityProfilePhaseErrors(raw: Record<string, unknown>): string[] {
   const cp = raw.capability_profile;
   if (cp === undefined || cp === null) {
     return [];
@@ -68,16 +68,25 @@ function iosCapabilityProfileErrors(raw: Record<string, unknown>): string[] {
   }
 
   const profile = cp as Record<string, unknown>;
-  if (profile.phase !== 'ios_v1') {
-    return [];
-  }
-
   const errors: string[] = [];
-  if ('process' in profile || 'contract' in profile) {
-    errors.push('must NOT have additional properties');
-  }
-  if (!('inputs' in profile) && !('outcomes' in profile) && !('systems' in profile)) {
-    errors.push('must match at least one schema in anyOf');
+  const phase = profile.phase;
+  const hasIosKeys = 'inputs' in profile || 'outcomes' in profile || 'systems' in profile;
+  if (phase === 'ios_v1') {
+    if ('process' in profile || 'contract' in profile) {
+      errors.push('must NOT have additional properties');
+    }
+    if (!hasIosKeys) {
+      errors.push('must match at least one schema in anyOf');
+    }
+  } else if (phase === 'iospc_v1') {
+    if (!hasIosKeys) {
+      errors.push('iospc_v1 requires inputs or outcomes or systems');
+    }
+    if (!('process' in profile) && !('contract' in profile)) {
+      errors.push('iospc_v1 requires process or contract');
+    }
+  } else if (phase !== undefined) {
+    errors.push('phase must be ios_v1 or iospc_v1');
   }
   return errors;
 }
@@ -102,12 +111,12 @@ describe('protocol_loading compliance', () => {
           typeof raw?.id === 'string' &&
           typeof raw?.protocol_version === 'string' &&
           typeof (raw?.endpoint as Record<string, unknown> | undefined)?.base_url === 'string';
-        const iosErrors = iosCapabilityProfileErrors(raw);
-        expect(hasRequiredShape && iosErrors.length === 0).toBe(false);
+        const cpErrors = capabilityProfilePhaseErrors(raw);
+        expect(hasRequiredShape && cpErrors.length === 0).toBe(false);
         const expectedErrors = Array.isArray(c.expected?.errors)
           ? c.expected.errors.filter((item): item is string => typeof item === 'string')
           : [];
-        const actualErrorText = iosErrors.join(' | ');
+        const actualErrorText = cpErrors.join(' | ');
         for (const expectedError of expectedErrors) {
           expect(actualErrorText).toContain(expectedError);
         }

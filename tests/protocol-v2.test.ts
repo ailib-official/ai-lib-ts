@@ -7,7 +7,10 @@ import { Pipeline } from '../src/index.js';
 import { parseManifestV2 } from '../src/index.js';
 import { loadManifestV2FromPath } from '../src/index.js';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { ProtocolLoader } from '../src/protocol/loader.js';
 
 describe('parseManifestV2', () => {
   it('should parse minimal manifest', () => {
@@ -58,6 +61,20 @@ describe('parseManifestV2', () => {
       'sse'
     );
   });
+
+  it('preserves capability_profile fields', () => {
+    const manifest = parseManifestV2({
+      id: 'capability-profile-provider',
+      protocol_version: '2.0',
+      endpoint: { base_url: 'https://example.com' },
+      capability_profile: {
+        phase: 'ios_v1',
+        inputs: { modalities: ['text'] },
+      },
+    });
+    const cp = manifest.capability_profile as Record<string, unknown>;
+    expect(cp.phase).toBe('ios_v1');
+  });
 });
 
 describe('Pipeline.fromManifest', () => {
@@ -100,12 +117,25 @@ describe('latest generative manifest consumption', () => {
     const protocolRoot = rootCandidates.find((candidate) => existsSync(candidate));
     expect(protocolRoot).toBeTruthy();
 
-    const providers = ['google', 'deepseek', 'qwen', 'doubao'];
+    const providers = [
+      'openai',
+      'anthropic',
+      'google',
+      'deepseek',
+      'qwen',
+      'doubao',
+      'cohere',
+      'moonshot',
+      'zhipu',
+      'jina',
+    ];
     for (const provider of providers) {
       const manifest = await loadManifestV2FromPath(
         `${protocolRoot}/v2/providers/${provider}.yaml`
       );
       expect(manifest.id).toBe(provider);
+      const cp = (manifest.capability_profile ?? {}) as Record<string, unknown>;
+      expect(cp.phase).toBe('ios_v1');
       const endpoint = manifest.endpoint ?? manifest.endpoints;
       expect(endpoint?.base_url).toBeTruthy();
 
@@ -120,6 +150,65 @@ describe('latest generative manifest consumption', () => {
 
       const videoOut = (output.video ?? {}) as Record<string, unknown>;
       expect(videoOut.supported ?? false).toBe(false);
+    }
+  });
+});
+
+describe('ProtocolLoader v2 priority', () => {
+  it('prefers dist/v2 provider manifest over dist/v1', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ai-lib-ts-loader-v2-'));
+    try {
+      const v2Dir = join(root, 'v2', 'providers');
+      const v1Dir = join(root, 'v1', 'providers');
+      await mkdir(v2Dir, { recursive: true });
+      await mkdir(v1Dir, { recursive: true });
+      await writeFile(
+        join(v2Dir, 'openai.json'),
+        JSON.stringify({
+          id: 'openai',
+          protocol_version: '2.0',
+          endpoint: { base_url: 'https://v2.example.com' },
+          capability_profile: { phase: 'ios_v1' },
+        }),
+        'utf-8'
+      );
+      await writeFile(
+        join(v1Dir, 'openai.json'),
+        JSON.stringify({
+          id: 'openai',
+          protocol_version: '1.5',
+          endpoint: { base_url: 'https://v1.example.com' },
+        }),
+        'utf-8'
+      );
+      const loader = new ProtocolLoader({ protocolPath: root });
+      const manifest = await loader.loadProvider('openai');
+      expect(manifest.protocol_version).toBe('2.0');
+      expect((manifest.endpoint as { base_url?: string }).base_url).toBe('https://v2.example.com');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('falls back to dist/v1 when dist/v2 is missing', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ai-lib-ts-loader-v1-'));
+    try {
+      const v1Dir = join(root, 'v1', 'providers');
+      await mkdir(v1Dir, { recursive: true });
+      await writeFile(
+        join(v1Dir, 'openai.json'),
+        JSON.stringify({
+          id: 'openai',
+          protocol_version: '1.5',
+          endpoint: { base_url: 'https://v1.example.com' },
+        }),
+        'utf-8'
+      );
+      const loader = new ProtocolLoader({ protocolPath: root });
+      const manifest = await loader.loadProvider('openai');
+      expect(manifest.protocol_version).toBe('1.5');
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 });

@@ -76,5 +76,13 @@ export interface ManifestV2 {
   multimodal?: MultimodalConfig;
   computer_use?: ComputerUseConfig;
   mcp?: McpConfig;
+  capability_profile?: {
+    phase?: 'ios_v1' | 'iospc_v1' | string;
+    inputs?: Record<string, unknown>;
+    outcomes?: Record<string, unknown>;
+    systems?: Record<string, unknown>;
+    process?: Record<string, unknown>;
+    contract?: Record<string, unknown>;
+  };
   [key: string]: unknown;
 }

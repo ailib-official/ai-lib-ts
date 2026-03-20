@@ -8,7 +8,7 @@
 
 ## 🎯 设计理念
 
-`ai-lib-ts` 是 [AI-Protocol](https://github.com/hiddenpath/ai-protocol) 规范的**官方 TypeScript 运行时**。它体现了核心设计原则：
+`ai-lib-ts` 是 [AI-Protocol](https://github.com/ailib-official/ai-protocol) 规范的**官方 TypeScript 运行时**。它体现了核心设计原则：
 
 > **一切逻辑皆算子，一切配置皆协议** (All logic is operators, all configuration is protocol)
 
@@ -83,7 +83,7 @@ console.log(response.content);
 
 ### 使用 ai-protocol-mock 进行测试
 
-在无需真实 API 调用的集成测试中，可使用 [ai-protocol-mock](https://github.com/hiddenpath/ai-protocol-mock)：
+在无需真实 API 调用的集成测试中，可使用 [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock)：
 
 ```typescript
 import { createClientBuilder } from '@hiddenpath/ai-lib-ts';
@@ -111,7 +111,7 @@ pnpm add @hiddenpath/ai-lib-ts
 
 1. `node_modules/ai-protocol/dist` 或 `node_modules/@hiddenpath/ai-protocol/dist`
 2. `../ai-protocol/dist`、`./protocols`
-3. GitHub raw `hiddenpath/ai-protocol` (main)
+3. GitHub raw `ailib-official/ai-protocol` (main)
 
 ### 提供商 API 密钥
 
@@ -249,10 +249,10 @@ if (result.passed) {
 
 ## 📖 相关项目
 
-- [AI-Protocol](https://github.com/hiddenpath/ai-protocol) - 协议规范（v1.5 / V2）
-- [ai-lib-python](https://github.com/hiddenpath/ai-lib-python) - Python 运行时
-- [ai-lib-rust](https://github.com/hiddenpath/ai-lib-rust) - Rust 运行时
-- [ai-protocol-mock](https://github.com/hiddenpath/ai-protocol-mock) - 统一 mock 服务
+- [AI-Protocol](https://github.com/ailib-official/ai-protocol) - 协议规范（v1.5 / V2）
+- [ai-lib-python](https://github.com/ailib-official/ai-lib-python) - Python 运行时
+- [ai-lib-rust](https://github.com/ailib-official/ai-lib-rust) - Rust 运行时
+- [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock) - 统一 mock 服务
 
 ## 📄 许可证
 

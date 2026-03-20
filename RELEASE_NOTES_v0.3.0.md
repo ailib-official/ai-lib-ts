@@ -74,5 +74,5 @@ No new runtime dependencies. Uses native `fetch`, `FormData`, `AbortController`.
 
 ## Related
 
-- [AI-Protocol Project Plan v4](https://github.com/hiddenpath/ai-protocol) §4.4.7
+- [AI-Protocol Project Plan v4](https://github.com/ailib-official/ai-protocol) §4.4.7
 - [ts_runtime_alignment_plan.md](.work/ts_runtime_alignment_plan.md)

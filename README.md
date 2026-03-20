@@ -8,7 +8,7 @@
 
 ## 🎯 Design Philosophy
 
-`ai-lib-ts` is the official TypeScript runtime implementation for the [AI-Protocol](https://github.com/hiddenpath/ai-protocol) specification. It embodies the core design principle:
+`ai-lib-ts` is the official TypeScript runtime implementation for the [AI-Protocol](https://github.com/ailib-official/ai-protocol) specification. It embodies the core design principle:
 
 > **一切逻辑皆算子，一切配置皆协议** (All logic is operators, all configuration is protocol)
 
@@ -83,7 +83,7 @@ All provider errors are classified into 13 standard error codes with unified ret
 
 ### Testing with ai-protocol-mock
 
-For integration tests without real API calls, use [ai-protocol-mock](https://github.com/hiddenpath/ai-protocol-mock):
+For integration tests without real API calls, use [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock):
 
 ```typescript
 import { createClientBuilder } from '@hiddenpath/ai-lib-ts';
@@ -113,7 +113,7 @@ The library automatically looks for protocol manifests in:
 
 1. `node_modules/ai-protocol/dist` or `node_modules/@hiddenpath/ai-protocol/dist`
 2. `../ai-protocol/dist`, `./protocols`
-3. GitHub raw `hiddenpath/ai-protocol` (main)
+3. GitHub raw `ailib-official/ai-protocol` (main)
 
 ### Provider API Keys
 
@@ -371,7 +371,7 @@ const events = pipeline.process(chunk);
 ## 🧪 Development
 
 ```bash
-git clone https://github.com/hiddenpath/ai-lib-ts.git
+git clone https://github.com/ailib-official/ai-lib-ts.git
 cd ai-lib-ts
 
 npm install
@@ -408,10 +408,10 @@ ai-lib-ts/
 
 ## 📖 Related Projects
 
-- [AI-Protocol](https://github.com/hiddenpath/ai-protocol) - Protocol specification (v1.5 / V2)
-- [ai-lib-python](https://github.com/hiddenpath/ai-lib-python) - Python runtime implementation
-- [ai-lib-rust](https://github.com/hiddenpath/ai-lib-rust) - Rust runtime implementation
-- [ai-protocol-mock](https://github.com/hiddenpath/ai-protocol-mock) - Unified mock server
+- [AI-Protocol](https://github.com/ailib-official/ai-protocol) - Protocol specification (v1.5 / V2)
+- [ai-lib-python](https://github.com/ailib-official/ai-lib-python) - Python runtime implementation
+- [ai-lib-rust](https://github.com/ailib-official/ai-lib-rust) - Rust runtime implementation
+- [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock) - Unified mock server
 
 ## 📄 License
 

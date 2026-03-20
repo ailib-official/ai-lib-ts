@@ -24,7 +24,7 @@ const DEFAULT_PROTOCOL_PATHS = [
 /**
  * GitHub raw URL base
  */
-const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/hiddenpath/ai-protocol/main';
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/ailib-official/ai-protocol/main';
 
 /**
  * Protocol loader options

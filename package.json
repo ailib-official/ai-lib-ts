@@ -51,12 +51,12 @@
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hiddenpath/ai-lib-ts.git"
+    "url": "git+https://github.com/ailib-official/ai-lib-ts.git"
   },
   "bugs": {
-    "url": "https://github.com/hiddenpath/ai-lib-ts/issues"
+    "url": "https://github.com/ailib-official/ai-lib-ts/issues"
   },
-  "homepage": "https://github.com/hiddenpath/ai-lib-ts#readme",
+  "homepage": "https://github.com/ailib-official/ai-lib-ts#readme",
   "dependencies": {
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

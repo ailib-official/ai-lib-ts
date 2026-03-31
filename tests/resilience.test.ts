@@ -50,6 +50,7 @@ describe('RetryPolicy', () => {
     const config = retryConfigFromProtocol({
       max_retries: 5,
       min_delay_ms: 500,
+      strategy: 'exponential_backoff',
       jitter: 'none',
     });
     expect(config.maxRetries).toBe(5);

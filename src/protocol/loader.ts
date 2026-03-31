@@ -109,7 +109,7 @@ export class ProtocolLoader {
       for (const path of candidates) {
         const manifest = await this.loadFromPath(path);
         if (manifest) {
-          return manifest as ProviderManifest;
+          return this.normalizeProviderManifest(manifest);
         }
       }
     }
@@ -124,10 +124,20 @@ export class ProtocolLoader {
           `${GITHUB_RAW_BASE}/dist/v1/providers/${providerId}.json`
         );
       }
-      return manifest as ProviderManifest;
+      return this.normalizeProviderManifest(manifest);
     } catch {
       throw new ProtocolError(`Failed to load provider manifest: ${providerId}`);
     }
+  }
+
+  private normalizeProviderManifest(manifest: unknown): ProviderManifest {
+    const normalized = ({ ...(manifest as Record<string, unknown>) } as unknown) as ProviderManifest & {
+      endpoint?: { base_url?: string };
+    };
+    if (!normalized.base_url && normalized.endpoint?.base_url) {
+      normalized.base_url = normalized.endpoint.base_url;
+    }
+    return normalized;
   }
 
   /**

@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { PluginRegistry, HookManager } from '../src/index.ts';
-import type { Plugin, PluginContext } from '../src/index.ts';
+import type { Plugin } from '../src/index.ts';
 
 const createTestPlugin = (name: string, priority?: number): Plugin => ({
   name,

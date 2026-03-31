@@ -8,11 +8,9 @@ import {
   ModelArray,
   CostBasedSelector,
   QualityBasedSelector,
-  RoundRobinSelector,
   modelSupports,
-  createModelSelector,
 } from '../src/routing/index.ts';
-import type { ModelInfo, ModelEndpoint } from '../src/routing/index.ts';
+import type { ModelInfo } from '../src/routing/index.ts';
 
 const createTestModel = (overrides: Partial<ModelInfo> = {}): ModelInfo => ({
   name: 'test',
@@ -86,7 +84,7 @@ describe('ModelManager', () => {
     manager.addModel(createTestModel({ name: 'b', capabilities: {} }));
     const filtered = manager.filterByCapability('tools');
     expect(filtered).toHaveLength(1);
-    expect(filtered[0].name).toBe('a');
+    expect(filtered[0]?.name).toBe('a');
   });
 });
 

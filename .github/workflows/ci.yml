@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout ai-protocol
+        uses: actions/checkout@v4
+        with:
+          repository: ailib-official/ai-protocol
+          path: ai-protocol
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        env:
+          AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  mock-integration:
+    name: Mock Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout ai-protocol-mock
+        uses: actions/checkout@v4
+        with:
+          repository: ailib-official/ai-protocol-mock
+          path: ai-protocol-mock
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Start mock server
+        run: |
+          cd ai-protocol-mock
+          pip install -e .
+          python scripts/sync_manifests.py --force || true
+          uvicorn ai_protocol_mock.main:app --host 0.0.0.0 --port 4010 &
+          sleep 5
+
+      - name: Run integration tests
+        env:
+          MOCK_HTTP_URL: http://localhost:4010
+          NO_PROXY: localhost,127.0.0.1
+        run: npx vitest run tests/integration.test.ts

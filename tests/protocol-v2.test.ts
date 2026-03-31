@@ -6,11 +6,11 @@ import { describe, it, expect } from 'vitest';
 import { Pipeline } from '../src/index.js';
 import { parseManifestV2 } from '../src/index.js';
 import { loadManifestV2FromPath } from '../src/index.js';
-import { existsSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ProtocolLoader } from '../src/protocol/loader.js';
+import { protocolRoot } from './helpers/protocol-root.js';
 
 describe('parseManifestV2', () => {
   it('should parse minimal manifest', () => {
@@ -88,7 +88,10 @@ describe('Pipeline.fromManifest', () => {
       'data: {"choices":[{"delta":{"content":"hi"},"index":0}]}\n\n'
     );
     expect(events).toHaveLength(1);
-    expect(events[0].event_type).toBe('PartialContentDelta');
+    expect(events[0]?.event_type).toBe('PartialContentDelta');
+    if (events[0]?.event_type !== 'PartialContentDelta') {
+      throw new Error('expected PartialContentDelta');
+    }
     expect(events[0].content).toBe('hi');
   });
 
@@ -102,20 +105,17 @@ describe('Pipeline.fromManifest', () => {
       'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"},"index":0}\n\n'
     );
     expect(events).toHaveLength(1);
-    expect(events[0].event_type).toBe('PartialContentDelta');
+    expect(events[0]?.event_type).toBe('PartialContentDelta');
+    if (events[0]?.event_type !== 'PartialContentDelta') {
+      throw new Error('expected PartialContentDelta');
+    }
     expect(events[0].content).toBe('hi');
   });
 });
 
 describe('latest generative manifest consumption', () => {
   it('loads latest ai-protocol v2 provider manifests from yaml', async () => {
-    const rootCandidates = [
-      resolve(process.cwd(), '../ai-protocol'),
-      resolve(process.cwd(), '../../ai-protocol'),
-      'd:/ai-protocol',
-    ];
-    const protocolRoot = rootCandidates.find((candidate) => existsSync(candidate));
-    expect(protocolRoot).toBeTruthy();
+    const root = protocolRoot();
 
     const providers = [
       'openai',
@@ -130,9 +130,7 @@ describe('latest generative manifest consumption', () => {
       'jina',
     ];
     for (const provider of providers) {
-      const manifest = await loadManifestV2FromPath(
-        `${protocolRoot}/v2/providers/${provider}.yaml`
-      );
+      const manifest = await loadManifestV2FromPath(`${root}/v2/providers/${provider}.yaml`);
       expect(manifest.id).toBe(provider);
       const cp = (manifest.capability_profile ?? {}) as Record<string, unknown>;
       expect(cp.phase).toBe('ios_v1');
@@ -184,7 +182,10 @@ describe('ProtocolLoader v2 priority', () => {
       const loader = new ProtocolLoader({ protocolPath: root });
       const manifest = await loader.loadProvider('openai');
       expect(manifest.protocol_version).toBe('2.0');
-      expect((manifest.endpoint as { base_url?: string }).base_url).toBe('https://v2.example.com');
+      const baseUrl =
+        manifest.base_url ??
+        (manifest.endpoints as unknown as { base_url?: string } | undefined)?.base_url;
+      expect(baseUrl).toBe('https://v2.example.com');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

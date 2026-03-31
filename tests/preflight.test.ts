@@ -28,7 +28,7 @@ describe('PreflightChecker', () => {
     expect(result.passed).toBe(false);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toBeInstanceOf(PreflightError);
-    expect(result.errors[0].component).toBe('circuit_breaker');
+    expect(result.errors[0]?.component).toBe('circuit_breaker');
     result.release();
   });
 

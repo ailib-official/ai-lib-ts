@@ -12,8 +12,8 @@ describe('McpToolBridge', () => {
       { name: 'read_file', description: 'Read a file', input_schema: { type: 'object' } },
     ]);
     expect(tools).toHaveLength(1);
-    expect(tools[0].name).toBe('mcp__fileserver__read_file');
-    expect(tools[0].description).toBe('Read a file');
+    expect(tools[0]?.name).toBe('mcp__fileserver__read_file');
+    expect(tools[0]?.description).toBe('Read a file');
   });
 
   it('should convert protocol call to MCP invocation', () => {
@@ -39,6 +39,6 @@ describe('McpToolBridge', () => {
       { name: 'secret' },
     ]);
     expect(tools).toHaveLength(1);
-    expect(tools[0].name).toBe('mcp__srv__read');
+    expect(tools[0]?.name).toBe('mcp__srv__read');
   });
 });

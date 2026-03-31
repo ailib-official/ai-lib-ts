@@ -1,18 +1,21 @@
 /**
- * Integration tests using Mock Server at 192.168.2.13:4010
+ * Integration tests using ai-protocol-mock.
  *
- * Set MOCK_HTTP_URL environment variable to override the mock server URL.
+ * Set MOCK_HTTP_URL to run these tests against a reachable mock server.
  *
- * Run tests: MOCK_HTTP_URL=http://192.168.2.13:4010 npm test
+ * Run tests: MOCK_HTTP_URL=http://localhost:4010 npm test
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { AiClient, Message, createClientBuilder, MOCK_SERVER_URL } from '../src/index.ts';
+import { describe, it, expect } from 'vitest';
+import { Message, createClientBuilder } from '../src/index.ts';
 
 // Use mock server for testing
-const mockServerUrl = process.env.MOCK_HTTP_URL ?? MOCK_SERVER_URL;
+const mockServerUrl = process.env.MOCK_HTTP_URL ?? 'http://localhost:4010';
+const mockAvailable = await fetch(`${mockServerUrl.replace(/\/$/, '')}/health`)
+  .then((response) => response.ok)
+  .catch(() => false);
 
-describe.skipIf(!process.env.MOCK_HTTP_URL)('Client Integration Tests', () => {
+describe.skipIf(!mockAvailable)('Client Integration Tests', () => {
   describe('AiClient', () => {
     it('should create client with mock server', async () => {
       const client = await createClientBuilder()

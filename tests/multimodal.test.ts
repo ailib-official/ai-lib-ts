@@ -4,11 +4,8 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  SttClient,
   SttClientBuilder,
-  TtsClient,
   TtsClientBuilder,
-  RerankerClient,
   RerankerClientBuilder,
   ContentBlock,
 } from '../src/index.ts';
@@ -17,6 +14,9 @@ describe('ContentBlock video and omni', () => {
   it('should create video block', () => {
     const block = ContentBlock.videoBase64('base64data', 'video/mp4');
     expect(block.type).toBe('video');
+    if (block.type !== 'video') {
+      throw new Error('expected video block');
+    }
     expect(block.source.type).toBe('base64');
     expect(block.source.data).toBe('base64data');
   });
@@ -27,6 +27,9 @@ describe('ContentBlock video and omni', () => {
       { type: 'url', data: 'https://example.com/audio.mp3' },
     ]);
     expect(block.type).toBe('omni');
+    if (block.type !== 'omni') {
+      throw new Error('expected omni block');
+    }
     expect(block.sources).toHaveLength(2);
   });
 });

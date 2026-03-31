@@ -3,9 +3,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse, parseAllDocuments } from 'yaml';
+import { protocolRoot } from './helpers/protocol-root.js';
 
 type CaseDoc = {
   id: string;
@@ -13,19 +14,6 @@ type CaseDoc = {
   input: Record<string, unknown>;
   expected: Record<string, unknown>;
 };
-
-function protocolRoot(): string {
-  const candidates = [
-    resolve(process.cwd(), '../ai-protocol'),
-    resolve(process.cwd(), '../../ai-protocol'),
-    'd:/ai-protocol',
-  ];
-  const root = candidates.find((candidate) => existsSync(candidate));
-  if (!root) {
-    throw new Error('Unable to locate ai-protocol root');
-  }
-  return root;
-}
 
 function loadCases(relPath: string): CaseDoc[] {
   const root = protocolRoot();

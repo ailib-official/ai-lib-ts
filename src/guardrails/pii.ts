@@ -63,14 +63,14 @@ export class PiiDetector {
 
     // Check SSN
     const ssnMatches = content.match(this.ssnPattern);
-    for (const _m of ssnMatches ?? []) {
+    for (const match of ssnMatches ?? []) {
       violations.push({
         violationType: ViolationType.Pii,
         pattern: 'ssn',
         action: FilterAction.Block,
         category: 'pii',
         description: 'Social Security Number detected',
-        matchedText: 'XXX-XX-XXXX',
+        matchedText: match.replace(/[0-9]/g, 'X'),
       });
     }
 

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Wave-5 E/P subpath exports: `import '@hiddenpath/ai-lib-ts/core'` (execution layer) and `import '@hiddenpath/ai-lib-ts/contact'` (policy modules); built via tsup multi-entry.
+- E/P boundary types: `ExecutionResult`, `ExecutionMetadata`, `ExecutionUsage` (`src/types/execution-result.ts`).
+- **`npm run test:core`:** Vitest config `vitest.core.config.ts` runs execution-layer compliance fixtures only (matrix + advanced capabilities + protocol_loading).
+- **GitHub Actions:** `.github/workflows/pt073-ts-core.yml` (typecheck + `test:core` with `AI_PROTOCOL_DIR`).
+
+### Changed
+
+- **`src/core.ts`:** re-exports protocol V2 loader (`loadManifestV2FromPath`, etc.) so E-only imports satisfy compliance tests.
+- **`tests/protocol-loading.compliance.test.ts`:** imports loader from `src/core.js` for core-only runs.
+
 ## [0.5.1] - 2026-03-08
 
 ### Added

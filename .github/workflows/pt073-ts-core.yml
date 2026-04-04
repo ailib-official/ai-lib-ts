@@ -1,0 +1,50 @@
+# PT-073 (Wave-5): TypeScript execution-layer compliance subset + typecheck.
+# Uses vitest.core.config.ts (fixtures only + protocol_loading via src/core.js).
+
+name: PT-073 TypeScript (core)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: Core typecheck + E-only compliance tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ai-lib-ts
+
+    steps:
+      - name: Checkout ai-lib-ts
+        uses: actions/checkout@v4
+        with:
+          path: ai-lib-ts
+
+      - name: Checkout ai-protocol
+        uses: actions/checkout@v4
+        with:
+          repository: hiddenpath/ai-protocol
+          path: ai-protocol
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+        env:
+          AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol
+
+      - name: Core compliance tests
+        run: npm run test:core
+        env:
+          AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol

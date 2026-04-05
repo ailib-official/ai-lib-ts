@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseAllDocuments } from 'yaml';
-import { loadManifestV2FromPath } from '../src/index.js';
+import { loadManifestV2FromPath } from '../src/core.js';
 import { protocolRoot } from './helpers/protocol-root.js';
 
 type ComplianceCase = {

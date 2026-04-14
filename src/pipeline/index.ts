@@ -7,6 +7,7 @@
 
 import type { StreamingEvent } from '../types/index.js';
 import type { ProtocolManifest } from '../protocol/manifest.js';
+import { getStringAtPath, getValueAtPath } from '../protocol/jsonPath.js';
 
 /**
  * Pipeline operator interface
@@ -79,39 +80,52 @@ export function createJsonSelector(): Selector {
   };
 }
 
+export interface OpenAiPathMapperOptions {
+  contentPath: string;
+  toolCallPath: string;
+  usagePath: string;
+  finishReasonPath?: string;
+}
+
 /**
- * Create OpenAI event mapper
+ * OpenAI-compatible SSE mapper using manifest paths (Rust/Python `PathEventMapper` parity).
  */
-export function createOpenAiEventMapper(): EventMapper {
+export function createOpenAiEventMapperWithPaths(opts: OpenAiPathMapperOptions): EventMapper {
+  const finishPath = opts.finishReasonPath ?? 'choices[0].finish_reason';
   return {
     process(data: Record<string, unknown>): StreamingEvent[] {
       const events: StreamingEvent[] = [];
 
-      const choices = data.choices as Array<Record<string, unknown>> | undefined;
-      if (!choices || choices.length === 0) {
+      if (data.error) {
+        events.push({
+          event_type: 'StreamError',
+          error: data.error as Record<string, unknown>,
+        });
         return events;
       }
 
-      const choice = choices[0];
-      if (!choice) {
-        return events;
+      const reasoning = getStringAtPath(data, 'choices[0].delta.reasoning_content');
+      if (reasoning) {
+        events.push({
+          event_type: 'ThinkingDelta',
+          thinking: reasoning,
+        });
       }
 
-      const delta = choice.delta as Record<string, unknown> | undefined;
-      const index = choice.index as number | undefined;
+      const indexRaw = getValueAtPath(data, 'choices[0].index');
+      const index = typeof indexRaw === 'number' ? indexRaw : undefined;
 
-      // Content delta
-      if (delta?.content) {
+      const contentRaw = getValueAtPath(data, opts.contentPath);
+      if (contentRaw !== undefined && contentRaw !== null && String(contentRaw) !== '') {
         events.push({
           event_type: 'PartialContentDelta',
-          content: String(delta.content),
+          content: String(contentRaw),
           sequence_id: index,
         });
       }
 
-      // Tool calls
-      const toolCalls = delta?.tool_calls as Array<Record<string, unknown>> | undefined;
-      if (toolCalls) {
+      const toolCalls = getValueAtPath(data, opts.toolCallPath) as Array<Record<string, unknown>> | undefined;
+      if (toolCalls && Array.isArray(toolCalls)) {
         for (const tc of toolCalls) {
           const tcIndex = tc.index as number | undefined;
           const id = tc.id as string | undefined;
@@ -138,8 +152,7 @@ export function createOpenAiEventMapper(): EventMapper {
         }
       }
 
-      // Finish reason
-      const finishReason = choice.finish_reason as string | undefined;
+      const finishReason = getStringAtPath(data, finishPath);
       if (finishReason) {
         events.push({
           event_type: 'Metadata',
@@ -147,9 +160,8 @@ export function createOpenAiEventMapper(): EventMapper {
         });
       }
 
-      // Usage
-      const usage = data.usage as Record<string, unknown> | undefined;
-      if (usage) {
+      const usage = getValueAtPath(data, opts.usagePath) as Record<string, unknown> | undefined;
+      if (usage && typeof usage === 'object' && !Array.isArray(usage)) {
         events.push({
           event_type: 'Metadata',
           usage,
@@ -159,6 +171,18 @@ export function createOpenAiEventMapper(): EventMapper {
       return events;
     },
   };
+}
+
+/**
+ * Create OpenAI event mapper (default streaming paths).
+ */
+export function createOpenAiEventMapper(): EventMapper {
+  return createOpenAiEventMapperWithPaths({
+    contentPath: 'choices[0].delta.content',
+    toolCallPath: 'choices[0].delta.tool_calls',
+    usagePath: 'usage',
+    finishReasonPath: 'choices[0].finish_reason',
+  });
 }
 
 /**
@@ -331,10 +355,25 @@ export class Pipeline {
    * Infers decoder/event mapper from manifest streaming config and provider id.
    */
   static fromManifest(manifest: ProtocolManifest): Pipeline {
+    const strategy = manifest.streaming?.decoder?.strategy?.toLowerCase() ?? '';
     const providerId = manifest.id?.toLowerCase() ?? '';
-    const format =
-      providerId.includes('anthropic') ? 'anthropic_sse' : 'openai_sse';
-    return Pipeline.forProvider(format);
+    if (strategy === 'anthropic_event_stream' || providerId.includes('anthropic')) {
+      return Pipeline.forProvider('anthropic_sse');
+    }
+    const st = manifest.streaming;
+    const contentPath = st?.content_path ?? 'choices[0].delta.content';
+    const toolCallPath = st?.tool_call_path ?? 'choices[0].delta.tool_calls';
+    const usagePath = st?.usage_path ?? 'usage';
+    return new Pipeline(
+      createSseDecoder(),
+      createJsonSelector(),
+      createOpenAiEventMapperWithPaths({
+        contentPath,
+        toolCallPath,
+        usagePath,
+        finishReasonPath: 'choices[0].finish_reason',
+      })
+    );
   }
 }
 

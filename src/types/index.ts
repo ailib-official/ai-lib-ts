@@ -23,3 +23,9 @@ export type { TerminationReasonType } from './events.js';
 
 export { Tool } from './tool.js';
 export type { ToolDefinition, ToolCall, ParsedToolCall, ToolChoice } from './tool.js';
+
+export type {
+  ExecutionMetadata,
+  ExecutionResult,
+  ExecutionUsage,
+} from './execution-result.js';

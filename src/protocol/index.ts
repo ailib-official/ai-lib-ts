@@ -11,6 +11,7 @@ export type {
   ProtocolManifest,
   UnifiedRequest,
   UnifiedResponse,
+  ResponsePathsConfig,
   StreamingConfig,
   EventMapping,
   EndpointConfig,
@@ -22,6 +23,8 @@ export type {
   ModelCapability,
   ModelPricing,
 } from './manifest.js';
+
+export { getValueAtPath, getStringAtPath } from './jsonPath.js';
 
 export { ProtocolLoader, createLoader } from './loader.js';
 export type { ProtocolLoaderOptions } from './loader.js';

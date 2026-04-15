@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Client / pipeline:** Non-streaming chat JSON is parsed with manifest `response_paths` (OpenAI-style fallbacks and reasoning paths); when `streaming.decoder.strategy` is `openai_chat`, the path-based event mapper is used even if `streaming.event_map` is present (cross-runtime parity with ai-lib-rust / ai-lib-python).
 - **`src/core.ts`:** re-exports protocol V2 loader (`loadManifestV2FromPath`, etc.) so E-only imports satisfy compliance tests.
 - **`tests/protocol-loading.compliance.test.ts`:** imports loader from `src/core.js` for core-only runs.
 

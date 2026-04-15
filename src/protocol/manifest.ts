@@ -3,14 +3,29 @@
  */
 
 /**
+ * Non-streaming JSON field paths (manifest-driven; OpenAI fallbacks in client).
+ */
+export interface ResponsePathsConfig {
+  content?: string;
+  usage?: string;
+  finish_reason?: string;
+  tool_calls?: string;
+  reasoning_content?: string;
+  reasoning?: string;
+}
+
+/**
  * Provider streaming configuration
  */
 export interface StreamingConfig {
-  decoder: {
+  decoder?: {
     format: string;
-    strategy: string;
+    strategy?: string;
   };
-  event_map: EventMapping[];
+  event_map?: EventMapping[];
+  content_path?: string;
+  tool_call_path?: string;
+  usage_path?: string;
 }
 
 /**
@@ -109,6 +124,8 @@ export interface ProviderManifest {
   auth?: AuthConfig;
   endpoints?: Record<string, EndpointConfig>;
   streaming?: StreamingConfig;
+  /** Manifest-driven extraction for non-streaming JSON (v2 parity with Rust/Python). */
+  response_paths?: ResponsePathsConfig;
   error_classification?: ErrorClassification;
   rate_limit_headers?: RateLimitHeaders;
   retry_policy?: RetryPolicy;

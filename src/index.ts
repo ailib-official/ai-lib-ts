@@ -1,5 +1,5 @@
 /**
- * @hiddenpath/ai-lib-ts
+ * @ailib-official/ai-lib-ts
  *
  * Official TypeScript Runtime for AI-Protocol
  * Unified AI model interaction for Node.js and the npm ecosystem
@@ -24,6 +24,8 @@ export type { TerminationReasonType } from './types/index.js';
 export { Tool } from './types/index.js';
 export type { ToolDefinition, ToolCall, ParsedToolCall, ToolChoice } from './types/index.js';
 
+export type { ExecutionMetadata, ExecutionResult, ExecutionUsage } from './types/index.js';
+
 // Errors
 export {
   AiLibError,
@@ -45,6 +47,8 @@ export {
   getValidator,
   validateProvider,
   validateModels,
+  getValueAtPath,
+  getStringAtPath,
 } from './protocol/index.js';
 
 export type {
@@ -54,6 +58,7 @@ export type {
   ProtocolManifest,
   UnifiedRequest,
   UnifiedResponse,
+  ResponsePathsConfig,
   StreamingConfig,
   EventMapping,
   EndpointConfig,
@@ -160,10 +165,17 @@ export {
   createSseDecoder,
   createJsonSelector,
   createOpenAiEventMapper,
+  createOpenAiEventMapperWithPaths,
   createAnthropicEventMapper,
 } from './pipeline/index.js';
 
-export type { PipelineOperator, Decoder, Selector, EventMapper } from './pipeline/index.js';
+export type {
+  PipelineOperator,
+  Decoder,
+  Selector,
+  EventMapper,
+  OpenAiPathMapperOptions,
+} from './pipeline/index.js';
 
 // Client
 export {
@@ -178,6 +190,7 @@ export type {
   ClientOptions,
   ChatOptions,
   Response,
+  ChatResponsePayload,
 } from './client/index.js';
 
 // Multimodal: STT, TTS, Rerank

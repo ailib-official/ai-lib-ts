@@ -10,6 +10,8 @@ import { ProtocolLoader } from '../protocol/index.js';
 import { HttpTransport, MOCK_SERVER_URL } from '../transport/index.js';
 import type { TransportOptions, CallStats } from '../transport/index.js';
 import { CancelHandle } from '../streaming/cancel.js';
+import { parseNonstreamChatResponse } from './parseChatResponse.js';
+import type { ChatResponsePayload } from './responseTypes.js';
 
 /**
  * Client builder options
@@ -37,26 +39,8 @@ export interface ChatOptions {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Unified response from the client
- */
-export interface Response {
-  content: string;
-  toolCalls?: Array<{
-    id: string;
-    type: 'function';
-    function: {
-      name: string;
-      arguments: string;
-    };
-  }>;
-  usage?: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  };
-  finishReason?: string;
-}
+/** Unified response from the client (non-streaming). */
+export type Response = ChatResponsePayload;
 
 /**
  * Chat request builder
@@ -170,17 +154,8 @@ export class AiClient {
   async executeChat(options: ChatOptions): Promise<Response> {
     const request = this.buildRequest(options);
     const { data } = await this.transport.execute(request);
-
-    return {
-      content: data.content ?? '',
-      toolCalls: data.tool_calls,
-      usage: data.usage ? {
-        promptTokens: data.usage.prompt_tokens,
-        completionTokens: data.usage.completion_tokens,
-        totalTokens: data.usage.total_tokens,
-      } : undefined,
-      finishReason: data.finish_reason,
-    };
+    const raw = data as unknown as Record<string, unknown>;
+    return parseNonstreamChatResponse(this.manifest, raw);
   }
 
   async *executeChatStream(
@@ -279,3 +254,5 @@ export function createClientBuilder(): AiClientBuilder {
 export async function createClient(model: string, options?: ClientOptions): Promise<AiClient> {
   return AiClient.new(model, options);
 }
+
+export type { ChatResponsePayload } from './responseTypes.js';

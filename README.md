@@ -2,7 +2,7 @@
 
 **Official TypeScript Runtime for AI-Protocol** - The canonical TypeScript/Node.js implementation for unified AI model interaction.
 
-[![npm version](https://img.shields.io/npm/v/@hiddenpath/ai-lib-ts.svg)](https://www.npmjs.com/package/@hiddenpath/ai-lib-ts)
+[![npm version](https://img.shields.io/npm/v/@ailib-official/ai-lib-ts.svg)](https://www.npmjs.com/package/@ailib-official/ai-lib-ts)
 [![Node 18+](https://img.shields.io/badge/node-18+-green.svg)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green.svg)](LICENSE)
 
@@ -23,7 +23,7 @@ Unlike traditional adapter libraries that hardcode provider-specific logic, `ai-
 ### Basic Usage
 
 ```typescript
-import { AiClient, Message } from '@hiddenpath/ai-lib-ts';
+import { AiClient, Message } from '@ailib-official/ai-lib-ts';
 
 const client = await AiClient.new('openai/gpt-4o');
 
@@ -37,6 +37,10 @@ const response = await client
 console.log(response.content);
 // Output: 2+2 equals 4.
 ```
+
+### HTTP and proxies (aligned with ai-lib-rust)
+
+When running behind a corporate proxy, mirror the Rust runtime: prefer an explicit app-level proxy URL where your transport supports it, set `NO_PROXY` (and provider-specific exclusions) so vendor APIs and local mocks are not sent through the wrong path, and document the same `AI_PROXY_URL` / `HTTP(S)_PROXY` semantics for operators. Non-streaming responses honor manifest `response_paths` with OpenAI Chat Completions fallbacks; streaming OpenAI-style frames use path-based mapping from `streaming.content_path` / `tool_call_path` / `usage_path` when `streaming.decoder.strategy` is `openai_chat` (see cross-runtime notes in ai-lib-plans).
 
 ## ✨ Features
 
@@ -86,7 +90,7 @@ All provider errors are classified into 13 standard error codes with unified ret
 For integration tests without real API calls, use [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock):
 
 ```typescript
-import { createClientBuilder } from '@hiddenpath/ai-lib-ts';
+import { createClientBuilder } from '@ailib-official/ai-lib-ts';
 
 // Set environment variable
 process.env.MOCK_HTTP_URL = 'http://localhost:4010';
@@ -100,18 +104,18 @@ const client = await createClientBuilder()
 ## 📦 Installation
 
 ```bash
-npm install @hiddenpath/ai-lib-ts
+npm install @ailib-official/ai-lib-ts
 # or
-yarn add @hiddenpath/ai-lib-ts
+yarn add @ailib-official/ai-lib-ts
 # or
-pnpm add @hiddenpath/ai-lib-ts
+pnpm add @ailib-official/ai-lib-ts
 ```
 
 ## 🔧 Configuration
 
 The library automatically looks for protocol manifests in:
 
-1. `node_modules/ai-protocol/dist` or `node_modules/@hiddenpath/ai-protocol/dist`
+1. `node_modules/ai-protocol/dist` or `node_modules/@ailib-official/ai-protocol/dist` (legacy: `node_modules/@hiddenpath/ai-protocol/dist`)
 2. `../ai-protocol/dist`, `./protocols`
 3. GitHub raw `ailib-official/ai-protocol` (main)
 
@@ -150,7 +154,7 @@ for await (const event of stream) {
 ### Tool Calling
 
 ```typescript
-import { Tool } from '@hiddenpath/ai-lib-ts';
+import { Tool } from '@ailib-official/ai-lib-ts';
 
 const weatherTool = Tool.define(
   'get_weather',
@@ -195,7 +199,7 @@ import {
   CircuitBreaker,
   RateLimiter,
   Backpressure,
-} from '@hiddenpath/ai-lib-ts';
+} from '@ailib-official/ai-lib-ts';
 
 const client = await createClientBuilder()
   .withRetry(RetryPolicy.fromConfig({ maxRetries: 5 }))
@@ -208,7 +212,7 @@ const client = await createClientBuilder()
 ### PreflightChecker (Request Gating)
 
 ```typescript
-import { PreflightChecker, CircuitBreaker, RateLimiter, Backpressure } from '@hiddenpath/ai-lib-ts';
+import { PreflightChecker, CircuitBreaker, RateLimiter, Backpressure } from '@ailib-official/ai-lib-ts';
 
 const checker = new PreflightChecker({
   circuitBreaker: new CircuitBreaker(),
@@ -234,7 +238,7 @@ if (result.passed) {
 ### Batch Processing
 
 ```typescript
-import { BatchExecutor, batchExecute } from '@hiddenpath/ai-lib-ts';
+import { BatchExecutor, batchExecute } from '@ailib-official/ai-lib-ts';
 
 const op = async (question: string) => {
   const client = await AiClient.new('openai/gpt-4o');
@@ -255,7 +259,7 @@ console.log(`Failed: ${result.failedCount}`);
 ### Token Estimation and Cost
 
 ```typescript
-import { estimateTokens, estimateCost } from '@hiddenpath/ai-lib-ts';
+import { estimateTokens, estimateCost } from '@ailib-official/ai-lib-ts';
 
 const tokens = estimateTokens('Hello, how are you?');
 console.log(`Tokens: ${tokens}`);
@@ -271,7 +275,7 @@ console.log(`Cost: $${cost.totalCost}`);
 ### Embeddings
 
 ```typescript
-import { EmbeddingClient } from '@hiddenpath/ai-lib-ts';
+import { EmbeddingClient } from '@ailib-official/ai-lib-ts';
 
 const client = await EmbeddingClient.new('openai/text-embedding-3-small');
 const response = await client.embed('Hello, world!');
@@ -297,7 +301,7 @@ for await (const event of stream) {
 ### Pipeline.fromManifest
 
 ```typescript
-import { Pipeline, ProtocolLoader } from '@hiddenpath/ai-lib-ts';
+import { Pipeline, ProtocolLoader } from '@ailib-official/ai-lib-ts';
 
 const loader = new ProtocolLoader();
 const manifest = await loader.load('openai/gpt-4o');

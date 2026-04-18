@@ -92,6 +92,8 @@ export interface OpenAiPathMapperOptions {
  */
 export function createOpenAiEventMapperWithPaths(opts: OpenAiPathMapperOptions): EventMapper {
   const finishPath = opts.finishReasonPath ?? 'choices[0].finish_reason';
+  // Track index -> id mapping for tool calls
+  const toolCallIds: Map<number, string> = new Map();
   return {
     process(data: Record<string, unknown>): StreamingEvent[] {
       const events: StreamingEvent[] = [];
@@ -132,6 +134,10 @@ export function createOpenAiEventMapperWithPaths(opts: OpenAiPathMapperOptions):
           const func = tc.function as Record<string, unknown> | undefined;
 
           if (id && func?.name) {
+          // Remember index -> id mapping
+          if (tcIndex !== undefined) {
+            toolCallIds.set(tcIndex, id);
+          }
             events.push({
               event_type: 'ToolCallStarted',
               tool_call_id: id,
@@ -140,14 +146,18 @@ export function createOpenAiEventMapperWithPaths(opts: OpenAiPathMapperOptions):
             });
           }
 
-          if (func?.arguments && id) {
+        if (func?.arguments) {
+          // Look up id by index if not present
+          const resolvedId = id ?? (tcIndex !== undefined ? toolCallIds.get(tcIndex) : undefined);
+          if (resolvedId) {
             events.push({
               event_type: 'PartialToolCall',
-              tool_call_id: id,
+              tool_call_id: resolvedId,
               arguments: String(func.arguments),
               index: tcIndex,
               is_complete: false,
             });
+          }
           }
         }
       }
@@ -205,6 +215,12 @@ export function createAnthropicEventMapper(): EventMapper {
               content: String(delta.text),
               sequence_id: index,
             });
+        }
+        if (delta?.type === 'thinking_delta' && delta.thinking) {
+          events.push({
+            event_type: 'ThinkingDelta',
+            thinking: String(delta.thinking),
+          });
           }
 
           if (delta?.type === 'input_json_delta' && delta.partial_json) {
@@ -385,4 +401,64 @@ export function createPipeline(format?: string): Pipeline {
     return Pipeline.forProvider(format);
   }
   return new Pipeline();
+}
+
+/**
+ * Tool call accumulator for merging partial tool call arguments
+ */
+export class ToolCallAccumulator {
+  private accumulated: Map<string, { id: string; name: string; arguments: string }> = new Map();
+
+  /**
+   * Accumulate a partial tool call event
+   */
+  accumulate(event: { tool_call_id: string; tool_name?: string; arguments: string; is_complete?: boolean }): {
+    id: string;
+    name: string;
+    arguments: string;
+    is_complete: boolean;
+  } | null {
+    const id = event.tool_call_id;
+    const existing = this.accumulated.get(id);
+
+    if (existing) {
+      existing.arguments += event.arguments;
+      return {
+        id,
+        name: existing.name,
+        arguments: existing.arguments,
+        is_complete: event.is_complete ?? false,
+      };
+    }
+
+    if (event.tool_name) {
+      this.accumulated.set(id, {
+        id,
+        name: event.tool_name,
+        arguments: event.arguments,
+      });
+      return {
+        id,
+        name: event.tool_name,
+        arguments: event.arguments,
+        is_complete: event.is_complete ?? false,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Get all accumulated tool calls
+   */
+  getAll(): Array<{ id: string; name: string; arguments: string }> {
+    return Array.from(this.accumulated.values());
+  }
+
+  /**
+   * Clear accumulated state
+   */
+  clear(): void {
+    this.accumulated.clear();
+  }
 }

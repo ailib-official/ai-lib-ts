@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Wave-5 E/P subpath exports: `import '@hiddenpath/ai-lib-ts/core'` (execution layer) and `import '@hiddenpath/ai-lib-ts/contact'` (policy modules); built via tsup multi-entry.
+- Wave-5 E/P subpath exports: `import '@ailib-official/ai-lib-ts/core'` (execution layer) and `import '@ailib-official/ai-lib-ts/contact'` (policy modules); built via tsup multi-entry.
 - E/P boundary types: `ExecutionResult`, `ExecutionMetadata`, `ExecutionUsage` (`src/types/execution-result.ts`).
-- **`npm run test:core`:** Vitest config `vitest.core.config.ts` runs execution-layer compliance fixtures only (matrix + advanced capabilities + protocol_loading).
+- **`npm run test:core`:** Vitest config `vitest.core.config.ts` runs execution-layer compliance fixtures only (matrix + advanced capabilities + protocol_loading + generative).
 - **GitHub Actions:** `.github/workflows/pt073-ts-core.yml` (typecheck + `test:core` with `AI_PROTOCOL_DIR`).
 
 ### Changed
@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Client / pipeline:** Non-streaming chat JSON is parsed with manifest `response_paths` (OpenAI-style fallbacks and reasoning paths); when `streaming.decoder.strategy` is `openai_chat`, the path-based event mapper is used even if `streaming.event_map` is present (cross-runtime parity with ai-lib-rust / ai-lib-python).
 - **`src/core.ts`:** re-exports protocol V2 loader (`loadManifestV2FromPath`, etc.) so E-only imports satisfy compliance tests.
 - **`tests/protocol-loading.compliance.test.ts`:** imports loader from `src/core.js` for core-only runs.
+- **PT-065 Generative Capabilities:** `ThinkingDelta` emission, `ToolCallAccumulator`, `FeatureFlags` helpers, and `generative.compliance.test.ts` (gen-001~gen-007).
 
 ## [0.5.1] - 2026-03-08
 

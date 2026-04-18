@@ -2,7 +2,7 @@
 
 **AI-Protocol 官方 TypeScript 运行时** - 统一 AI 模型交互的规范 TypeScript/Node.js 实现。
 
-[![npm version](https://img.shields.io/npm/v/@hiddenpath/ai-lib-ts.svg)](https://www.npmjs.com/package/@hiddenpath/ai-lib-ts)
+[![npm version](https://img.shields.io/npm/v/@ailib-official/ai-lib-ts.svg)](https://www.npmjs.com/package/@ailib-official/ai-lib-ts)
 [![Node 18+](https://img.shields.io/badge/node-18+-green.svg)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green.svg)](LICENSE)
 
@@ -23,7 +23,7 @@
 ### 基础用法
 
 ```typescript
-import { AiClient, Message } from '@hiddenpath/ai-lib-ts';
+import { AiClient, Message } from '@ailib-official/ai-lib-ts';
 
 const client = await AiClient.new('openai/gpt-4o');
 
@@ -86,7 +86,7 @@ console.log(response.content);
 在无需真实 API 调用的集成测试中，可使用 [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock)：
 
 ```typescript
-import { createClientBuilder } from '@hiddenpath/ai-lib-ts';
+import { createClientBuilder } from '@ailib-official/ai-lib-ts';
 
 process.env.MOCK_HTTP_URL = 'http://localhost:4010';
 
@@ -98,18 +98,18 @@ const client = await createClientBuilder()
 ## 📦 安装
 
 ```bash
-npm install @hiddenpath/ai-lib-ts
+npm install @ailib-official/ai-lib-ts
 # 或
-yarn add @hiddenpath/ai-lib-ts
+yarn add @ailib-official/ai-lib-ts
 # 或
-pnpm add @hiddenpath/ai-lib-ts
+pnpm add @ailib-official/ai-lib-ts
 ```
 
 ## 🔧 配置
 
 库会自动在以下位置查找协议清单：
 
-1. `node_modules/ai-protocol/dist` 或 `node_modules/@hiddenpath/ai-protocol/dist`
+1. `node_modules/ai-protocol/dist` 或 `node_modules/@ailib-official/ai-protocol/dist`
 2. `../ai-protocol/dist`、`./protocols`
 3. GitHub raw `ailib-official/ai-protocol` (main)
 
@@ -148,7 +148,7 @@ for await (const event of stream) {
 ### 工具调用
 
 ```typescript
-import { Tool } from '@hiddenpath/ai-lib-ts';
+import { Tool } from '@ailib-official/ai-lib-ts';
 
 const weatherTool = Tool.define(
   'get_weather',
@@ -172,7 +172,7 @@ const response = await client
 ### 批量处理
 
 ```typescript
-import { batchExecute } from '@hiddenpath/ai-lib-ts';
+import { batchExecute } from '@ailib-official/ai-lib-ts';
 
 const op = async (question: string) => {
   const client = await AiClient.new('openai/gpt-4o');
@@ -193,7 +193,7 @@ console.log(`失败: ${result.failedCount}`);
 ### PreflightChecker（请求门控）
 
 ```typescript
-import { PreflightChecker, CircuitBreaker, RateLimiter, Backpressure } from '@hiddenpath/ai-lib-ts';
+import { PreflightChecker, CircuitBreaker, RateLimiter, Backpressure } from '@ailib-official/ai-lib-ts';
 
 const checker = new PreflightChecker({
   circuitBreaker: new CircuitBreaker(),

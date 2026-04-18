@@ -11,11 +11,11 @@ import { ProtocolError } from '../errors/index.js';
  */
 const DEFAULT_PROTOCOL_PATHS = [
   'node_modules/ai-protocol/dist/v2',
-  'node_modules/@hiddenpath/ai-protocol/dist/v2',
+  'node_modules/@ailib-official/ai-protocol/dist/v2',
   '../ai-protocol/dist/v2',
   '../ai-protocol/v2',
   'node_modules/ai-protocol/dist/v1',
-  'node_modules/@hiddenpath/ai-protocol/dist/v1',
+  'node_modules/@ailib-official/ai-protocol/dist/v1',
   '../ai-protocol/dist/v1',
   '../ai-protocol',
   './protocols',

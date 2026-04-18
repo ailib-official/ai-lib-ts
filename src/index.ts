@@ -49,6 +49,10 @@ export {
   validateModels,
   getValueAtPath,
   getStringAtPath,
+  getFeatureFlags,
+  isFeatureEnabled,
+  getAllCapabilities,
+  hasCapability,
 } from './protocol/index.js';
 
 export type {

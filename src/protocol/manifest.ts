@@ -1,5 +1,5 @@
 /**
- * Protocol manifest types based on AI-Protocol v1 specification
+ * Protocol manifest types based on AI-Protocol v1/v2 specification
  */
 
 /**
@@ -103,13 +103,34 @@ export interface CapabilityProfile {
  * Provider capability
  */
 export type ProviderCapability =
-  | 'chat'
-  | 'streaming'
-  | 'tools'
-  | 'vision'
-  | 'audio'
-  | 'embeddings'
-  | 'batch';
+  | 'chat' | 'streaming' | 'tools' | 'vision' | 'audio' | 'embeddings' | 'batch' | 'mcp_client';
+
+/**
+ * Feature flags for fine-grained capability control
+ */
+export interface FeatureFlags {
+  structured_output?: boolean;
+  parallel_tool_calls?: boolean;
+  extended_thinking?: boolean;
+  streaming_usage?: boolean;
+  system_messages?: boolean;
+  image_generation?: boolean;
+  json_mode?: boolean;
+  json_schema_mode?: boolean;
+  reasoning_tokens?: boolean;
+  streaming_tool_calls?: boolean;
+  recursive_tool_calls?: boolean;
+  [key: string]: boolean | undefined;
+}
+
+/**
+ * Structured capabilities (V2 format)
+ */
+export interface StructuredCapabilities {
+  required: ProviderCapability[];
+  optional?: ProviderCapability[];
+  feature_flags?: FeatureFlags;
+}
 
 /**
  * Provider manifest structure
@@ -121,6 +142,7 @@ export interface ProviderManifest {
   protocol_version: string;
   description?: string;
   base_url?: string;
+  endpoint?: { base_url?: string };
   auth?: AuthConfig;
   endpoints?: Record<string, EndpointConfig>;
   streaming?: StreamingConfig;
@@ -129,7 +151,10 @@ export interface ProviderManifest {
   error_classification?: ErrorClassification;
   rate_limit_headers?: RateLimitHeaders;
   retry_policy?: RetryPolicy;
+  /** V1 format: simple array */
   capabilities?: ProviderCapability[];
+  /** V2 format: structured with required/optional/feature_flags */
+  capabilitiesV2?: StructuredCapabilities;
   capability_profile?: CapabilityProfile;
   default_headers?: Record<string, string>;
 }
@@ -223,4 +248,52 @@ export interface UnifiedResponse {
   };
   finish_reason?: string;
   model?: string;
+}
+
+/**
+ * Helper to extract feature flags from manifest
+ */
+export function getFeatureFlags(manifest: ProviderManifest): FeatureFlags | undefined {
+  // V2 format
+  if (manifest.capabilitiesV2?.feature_flags) {
+    return manifest.capabilitiesV2.feature_flags;
+  }
+  // V1 format doesn't have feature_flags, return undefined
+  return undefined;
+}
+
+/**
+ * Helper to check if a feature flag is enabled
+ */
+export function isFeatureEnabled(manifest: ProviderManifest, flag: keyof FeatureFlags): boolean {
+  const flags = getFeatureFlags(manifest);
+  return flags?.[flag] ?? false;
+}
+
+/**
+ * Helper to get all capabilities (merged required + optional)
+ */
+export function getAllCapabilities(manifest: ProviderManifest): ProviderCapability[] {
+  // V2 format
+  if (manifest.capabilitiesV2) {
+    const required = manifest.capabilitiesV2.required ?? [];
+    const optional = manifest.capabilitiesV2.optional ?? [];
+    return [...required, ...optional];
+  }
+  // V1 format
+  return manifest.capabilities ?? [];
+}
+
+/**
+ * Helper to check if a capability is declared
+ */
+export function hasCapability(manifest: ProviderManifest, capability: ProviderCapability): boolean {
+  // V2 format
+  if (manifest.capabilitiesV2) {
+    const required = manifest.capabilitiesV2.required ?? [];
+    const optional = manifest.capabilitiesV2.optional ?? [];
+    return required.includes(capability) || optional.includes(capability);
+  }
+  // V1 format
+  return manifest.capabilities?.includes(capability) ?? false;
 }

@@ -16,7 +16,7 @@ export default defineConfig({
   bundle: true,
   esbuildOptions(options) {
     options.banner = {
-      js: '// @hiddenpath/ai-lib-ts - AI-Protocol TypeScript Runtime',
+      js: '// @ailib-official/ai-lib-ts - AI-Protocol TypeScript Runtime',
     };
   },
 });

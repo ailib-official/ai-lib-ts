@@ -22,10 +22,12 @@ export type {
   ProviderCapability,
   ModelCapability,
   ModelPricing,
+  FeatureFlags,
+  StructuredCapabilities,
 } from './manifest.js';
 
 export { getValueAtPath, getStringAtPath } from './jsonPath.js';
-
 export { ProtocolLoader, createLoader } from './loader.js';
 export type { ProtocolLoaderOptions } from './loader.js';
 export { ProtocolValidator, getValidator, validateProvider, validateModels } from './validator.js';
+export { getFeatureFlags, isFeatureEnabled, getAllCapabilities, hasCapability } from './manifest.js';

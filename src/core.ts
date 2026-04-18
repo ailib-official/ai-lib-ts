@@ -1,7 +1,7 @@
 /**
  * Wave-5 execution layer (E) — public surface without contact/policy modules.
  *
- * Import from `@hiddenpath/ai-lib-ts/core` for tree-shaking and E-only compliance runs.
+ * Import from `@ailib-official/ai-lib-ts/core` for tree-shaking and E-only compliance runs.
  * Excludes: routing, cache, batch, plugins, tokens, telemetry, guardrails, interceptors,
  * negotiation, resilience.
  */

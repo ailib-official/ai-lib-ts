@@ -9,13 +9,15 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { Pipeline } from '../src/pipeline/index.js';
-import { 
-  getFeatureFlags, 
+import { Pipeline, ToolCallAccumulator } from '../src/pipeline/index.js';
+import {
+  getFeatureFlags,
   getAllCapabilities,
   hasCapability,
-  type ProviderManifest 
+  normalizeUsage,
+  type ProviderManifest,
 } from '../src/protocol/manifest.js';
+import { classifyHttpStatusWithManifest, StandardErrorCode } from '../src/errors/index.js';
 
 /**
  * Get ai-protocol root directory
@@ -145,6 +147,37 @@ describe('Generative Capabilities Compliance', () => {
       expect(details).toBeDefined();
       expect(details.reasoning_tokens).toBe(3);
     });
+
+    it('normalizeUsage lifts OpenAI reasoning + Anthropic cache tokens into UnifiedResponse.usage', () => {
+      // OpenAI-style (completion_tokens_details.reasoning_tokens)
+      const openai = normalizeUsage({
+        prompt_tokens: 10,
+        completion_tokens: 5,
+        total_tokens: 15,
+        prompt_tokens_details: { cached_tokens: 4 },
+        completion_tokens_details: { reasoning_tokens: 3 },
+      });
+      expect(openai).toBeDefined();
+      expect(openai?.prompt_tokens).toBe(10);
+      expect(openai?.reasoning_tokens).toBe(3);
+      expect(openai?.cache_read_tokens).toBe(4);
+
+      // Anthropic-style (input_tokens/output_tokens + cache_*_input_tokens)
+      const anthropic = normalizeUsage({
+        input_tokens: 200,
+        output_tokens: 50,
+        cache_creation_input_tokens: 120,
+        cache_read_input_tokens: 80,
+      });
+      expect(anthropic?.prompt_tokens).toBe(200);
+      expect(anthropic?.completion_tokens).toBe(50);
+      expect(anthropic?.cache_creation_tokens).toBe(120);
+      expect(anthropic?.cache_read_tokens).toBe(80);
+
+      // Empty / malformed yields undefined
+      expect(normalizeUsage(null)).toBeUndefined();
+      expect(normalizeUsage({})).toBeUndefined();
+    });
   });
 
   describe('gen-003: Structured output JSON mode', () => {
@@ -164,41 +197,55 @@ describe('Generative Capabilities Compliance', () => {
   });
 
   describe('gen-004: Streaming tool call accumulation', () => {
-    it('should accumulate partial tool call arguments', () => {
+    it('should accumulate partial tool call arguments via ToolCallAccumulator', () => {
       const pipeline = Pipeline.forProvider('openai_sse');
-      
+      const acc = new ToolCallAccumulator();
+
       // Simulate streaming events for tool call
       const chunk1 = 'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_abc","type":"function","function":{"name":"get_weather","arguments":""}}]}}]}';
       const chunk2 = 'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"loc"}}]}}]}';
       const chunk3 = 'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"ation\\": \\"SF\\"}"}}]}}]}';
       const chunk4 = 'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":20,"completion_tokens":15,"total_tokens":35}}';
       const chunk5 = 'data: [DONE]';
-      
-      const events1 = pipeline.process(chunk1 + '\n\n');
-      const events2 = pipeline.process(chunk2 + '\n\n');
-      const events3 = pipeline.process(chunk3 + '\n\n');
-      pipeline.process(chunk4 + '\n\n');
-      pipeline.process(chunk5 + '\n\n');
-      
-      // First chunk should emit ToolCallStarted
-      const startedEvent = events1.find(e => e.event_type === 'ToolCallStarted');
-      expect(startedEvent).toBeDefined();
-      if (startedEvent && startedEvent.event_type === 'ToolCallStarted') {
-        expect(startedEvent.tool_call_id).toBe('call_abc');
-        expect(startedEvent.tool_name).toBe('get_weather');
+
+      const all = [
+        ...pipeline.process(chunk1 + '\n\n'),
+        ...pipeline.process(chunk2 + '\n\n'),
+        ...pipeline.process(chunk3 + '\n\n'),
+        ...pipeline.process(chunk4 + '\n\n'),
+        ...pipeline.process(chunk5 + '\n\n'),
+      ];
+
+      // Feed ToolCallStarted + PartialToolCall events into the accumulator
+      let started: { tool_call_id: string; tool_name: string } | undefined;
+      for (const ev of all) {
+        if (ev.event_type === 'ToolCallStarted') {
+          started = { tool_call_id: ev.tool_call_id, tool_name: ev.tool_name };
+          acc.accumulate({
+            tool_call_id: ev.tool_call_id,
+            tool_name: ev.tool_name,
+            arguments: '',
+          });
+        } else if (ev.event_type === 'PartialToolCall') {
+          acc.accumulate({
+            tool_call_id: ev.tool_call_id,
+            arguments: ev.arguments,
+          });
+        }
       }
-      
-      // Subsequent chunks should emit PartialToolCall
-      const partialEvents = [...events2, ...events3];
-      const partialEvent = partialEvents.find(e => e.event_type === 'PartialToolCall');
-      expect(partialEvent).toBeDefined();
-      
-      // Check accumulated arguments
-      if (partialEvent && partialEvent.event_type === 'PartialToolCall') {
-        expect(partialEvent.tool_call_id).toBe('call_abc');
-        // Arguments might be partial or accumulated depending on implementation
-        expect(partialEvent.arguments).toBeDefined();
-      }
+
+      expect(started?.tool_call_id).toBe('call_abc');
+      expect(started?.tool_name).toBe('get_weather');
+
+      const merged = acc.getAll();
+      expect(merged).toHaveLength(1);
+      const first = merged[0];
+      if (!first) throw new Error('accumulator returned no entries');
+      expect(first.id).toBe('call_abc');
+      expect(first.name).toBe('get_weather');
+      // Concatenated arguments should form the full JSON payload
+      expect(first.arguments).toBe('{"location": "SF"}');
+      expect(JSON.parse(first.arguments)).toEqual({ location: 'SF' });
     });
   });
 
@@ -212,14 +259,33 @@ describe('Generative Capabilities Compliance', () => {
           code: 'context_length_exceeded',
         },
       };
-      
-      // Map error code
-      // context_length_exceeded → request_too_large → E1005
+
+      // Legacy local helper path
       const errorType = mapErrorType(responseBody.error.code, httpStatus);
       const errorCode = mapErrorCode(errorType);
-      
       expect(errorType).toBe('request_too_large');
       expect(errorCode).toBe('E1005');
+
+      // Manifest-driven path (gen-005 acceptance): provider manifest maps
+      // `context_length_exceeded` → `request_too_large` → E1005
+      const classification = {
+        by_http_status: { '429': 'rate_limited', '413': 'request_too_large' },
+        by_error_code: { context_length_exceeded: 'request_too_large' },
+      };
+      const viaManifestCode = classifyHttpStatusWithManifest(
+        httpStatus,
+        classification,
+        responseBody.error.code
+      );
+      expect(viaManifestCode).toBe(StandardErrorCode.REQUEST_TOO_LARGE);
+
+      // Falls through to numeric 429 → rate_limited when no provider code matches
+      const via429 = classifyHttpStatusWithManifest(429, classification);
+      expect(via429).toBe(StandardErrorCode.RATE_LIMITED);
+
+      // Empty classification falls back to plain status classifier
+      const viaFallback = classifyHttpStatusWithManifest(401, undefined);
+      expect(viaFallback).toBe(StandardErrorCode.AUTHENTICATION);
     });
   });
 

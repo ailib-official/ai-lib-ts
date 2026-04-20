@@ -245,6 +245,12 @@ export interface UnifiedResponse {
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
+    /** Reasoning tokens reported by reasoning-capable providers (gen-002 parity). */
+    reasoning_tokens?: number;
+    /** Cached prompt tokens read (Anthropic/Gemini/OpenAI prompt-caching). */
+    cache_read_tokens?: number;
+    /** Tokens written to cache (Anthropic prompt cache creation). */
+    cache_creation_tokens?: number;
   };
   finish_reason?: string;
   model?: string;
@@ -296,4 +302,43 @@ export function hasCapability(manifest: ProviderManifest, capability: ProviderCa
   }
   // V1 format
   return manifest.capabilities?.includes(capability) ?? false;
+}
+
+/**
+ * Normalize provider-specific usage fields (OpenAI-style `completion_tokens_details`,
+ * Anthropic-style `cache_creation_input_tokens`/`cache_read_input_tokens`) into the
+ * extended {@link UnifiedResponse.usage} shape (gen-002).
+ */
+export function normalizeUsage(raw: unknown): NonNullable<UnifiedResponse['usage']> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+
+  const prompt = numeric(r.prompt_tokens) ?? numeric(r.input_tokens);
+  const completion = numeric(r.completion_tokens) ?? numeric(r.output_tokens);
+  const total = numeric(r.total_tokens);
+
+  const details = (r.completion_tokens_details as Record<string, unknown> | undefined) ?? {};
+  const promptDetails = (r.prompt_tokens_details as Record<string, unknown> | undefined) ?? {};
+
+  const reasoning =
+    numeric(details.reasoning_tokens) ?? numeric(r.reasoning_tokens);
+  const cacheRead =
+    numeric(promptDetails.cached_tokens) ??
+    numeric(r.cache_read_input_tokens) ??
+    numeric(r.cache_read_tokens);
+  const cacheCreation =
+    numeric(r.cache_creation_input_tokens) ?? numeric(r.cache_creation_tokens);
+
+  const out: NonNullable<UnifiedResponse['usage']> = {};
+  if (prompt !== undefined) out.prompt_tokens = prompt;
+  if (completion !== undefined) out.completion_tokens = completion;
+  if (total !== undefined) out.total_tokens = total;
+  if (reasoning !== undefined) out.reasoning_tokens = reasoning;
+  if (cacheRead !== undefined) out.cache_read_tokens = cacheRead;
+  if (cacheCreation !== undefined) out.cache_creation_tokens = cacheCreation;
+  return Object.keys(out).length === 0 ? undefined : out;
+}
+
+function numeric(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 }

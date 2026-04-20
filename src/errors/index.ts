@@ -99,6 +99,69 @@ export function classifyHttpStatus(status: number): StandardErrorCodeType {
 }
 
 /**
+ * Manifest-aware classifier (gen-005 parity). Consults
+ * `error_classification.by_http_status` / `by_error_code` first, then falls back
+ * to the numeric HTTP status mapping.
+ *
+ * Values in the manifest are human-readable types (e.g. `request_too_large`,
+ * `rate_limited`); this helper maps them to StandardErrorCode (`E1xxx`/`E2xxx`).
+ */
+export function classifyHttpStatusWithManifest(
+  status: number,
+  classification?: {
+    by_http_status?: Record<string, string>;
+    by_error_code?: Record<string, string>;
+  },
+  providerCode?: string
+): StandardErrorCodeType {
+  const mapType = (t?: string): StandardErrorCodeType | undefined => {
+    if (!t) return undefined;
+    const key = t.toLowerCase();
+    switch (key) {
+      case 'invalid_request':
+        return StandardErrorCode.INVALID_REQUEST;
+      case 'authentication':
+        return StandardErrorCode.AUTHENTICATION;
+      case 'permission_denied':
+      case 'forbidden':
+        return StandardErrorCode.PERMISSION_DENIED;
+      case 'not_found':
+        return StandardErrorCode.NOT_FOUND;
+      case 'request_too_large':
+      case 'context_length_exceeded':
+        return StandardErrorCode.REQUEST_TOO_LARGE;
+      case 'rate_limited':
+      case 'rate_limit_exceeded':
+        return StandardErrorCode.RATE_LIMITED;
+      case 'quota_exhausted':
+        return StandardErrorCode.QUOTA_EXHAUSTED;
+      case 'server_error':
+        return StandardErrorCode.SERVER_ERROR;
+      case 'overloaded':
+        return StandardErrorCode.OVERLOADED;
+      case 'timeout':
+        return StandardErrorCode.TIMEOUT;
+      case 'conflict':
+        return StandardErrorCode.CONFLICT;
+      case 'cancelled':
+        return StandardErrorCode.CANCELLED;
+      default:
+        return undefined;
+    }
+  };
+
+  if (providerCode && classification?.by_error_code) {
+    const mapped = mapType(classification.by_error_code[providerCode]);
+    if (mapped) return mapped;
+  }
+  if (classification?.by_http_status) {
+    const mapped = mapType(classification.by_http_status[String(status)]);
+    if (mapped) return mapped;
+  }
+  return classifyHttpStatus(status);
+}
+
+/**
  * Base error class for ai-lib-ts
  */
 export class AiLibError extends Error {

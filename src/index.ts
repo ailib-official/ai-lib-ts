@@ -35,6 +35,7 @@ export {
   isRetryable,
   isFallbackable,
   classifyHttpStatus,
+  classifyHttpStatusWithManifest,
 } from './errors/index.js';
 
 export type { ErrorMeta, StandardErrorCodeType } from './errors/index.js';
@@ -53,6 +54,7 @@ export {
   isFeatureEnabled,
   getAllCapabilities,
   hasCapability,
+  normalizeUsage,
 } from './protocol/index.js';
 
 export type {
@@ -73,6 +75,8 @@ export type {
   ProviderCapability,
   ModelCapability,
   ModelPricing,
+  FeatureFlags,
+  StructuredCapabilities,
   ProtocolLoaderOptions,
 } from './protocol/index.js';
 
@@ -171,6 +175,7 @@ export {
   createOpenAiEventMapper,
   createOpenAiEventMapperWithPaths,
   createAnthropicEventMapper,
+  ToolCallAccumulator,
 } from './pipeline/index.js';
 
 export type {

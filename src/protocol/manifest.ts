@@ -44,15 +44,21 @@ export interface EndpointConfig {
   path: string;
   method?: string;
   headers?: Record<string, string>;
+  auth?: AuthConfig;
 }
 
 /**
  * Authentication configuration
  */
 export interface AuthConfig {
-  type: 'bearer' | 'api_key' | 'header';
+  type: 'bearer' | 'api_key' | 'header' | 'custom_header' | 'query_param' | string;
+  header?: string;
   header_name?: string;
   env_var?: string;
+  token_env?: string;
+  key_env?: string;
+  param_name?: string;
+  prefix?: string;
 }
 
 /**
@@ -142,7 +148,7 @@ export interface ProviderManifest {
   protocol_version: string;
   description?: string;
   base_url?: string;
-  endpoint?: { base_url?: string };
+  endpoint?: { base_url?: string; auth?: AuthConfig; [key: string]: unknown };
   auth?: AuthConfig;
   endpoints?: Record<string, EndpointConfig>;
   streaming?: StreamingConfig;

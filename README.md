@@ -121,7 +121,14 @@ The library automatically looks for protocol manifests in:
 
 ### Provider API Keys
 
-Set API keys via environment variables: `<PROVIDER_ID>_API_KEY`
+ai-lib-ts resolves provider credentials through the unified PT-074 BYOK chain:
+
+1. explicit application override;
+2. manifest-declared env from `endpoint.auth` or V1 top-level `auth`;
+3. conventional `<PROVIDER_ID>_API_KEY`;
+4. external resolvers when a host application wires them in.
+
+Diagnostics expose only source metadata and env var names, never raw key values.
 
 ```bash
 export OPENAI_API_KEY="sk-..."

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **PT-074 credential chain parity:** manifest-declared credential resolution now supports explicit overrides, `endpoint.auth` / top-level `auth` env names, conventional `<PROVIDER_ID>_API_KEY` fallback, and compliance coverage for credential resolution / auth attachment.
 - Wave-5 E/P subpath exports: `import '@ailib-official/ai-lib-ts/core'` (execution layer) and `import '@ailib-official/ai-lib-ts/contact'` (policy modules); built via tsup multi-entry.
 - E/P boundary types: `ExecutionResult`, `ExecutionMetadata`, `ExecutionUsage` (`src/types/execution-result.ts`).
 - **`npm run test:core`:** Vitest config `vitest.core.config.ts` runs execution-layer compliance fixtures only (matrix + advanced capabilities + protocol_loading + generative).

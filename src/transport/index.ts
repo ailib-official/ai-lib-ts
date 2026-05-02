@@ -8,6 +8,11 @@ import type { ProtocolManifest, UnifiedRequest, UnifiedResponse } from '../proto
 import { AiLibError } from '../errors/index.js';
 import type { StreamingEvent } from '../types/index.js';
 import {
+  buildAuthMetadata,
+  resolveCredential,
+  type ResolvedCredential,
+} from './credentials.js';
+import {
   RetryPolicy,
   retryConfigFromProtocol,
   CircuitBreaker,
@@ -20,6 +25,8 @@ import type {
   RateLimiterConfig,
   BackpressureConfig,
 } from '../resilience/index.js';
+
+export * from './credentials.js';
 
 /**
  * Mock server URL for testing (priority: 192.168.2.13)
@@ -43,6 +50,7 @@ export interface TransportOptions {
   baseUrlOverride?: string;
   timeout?: number;
   headers?: Record<string, string>;
+  credential?: string;
   proxyUrl?: string;
   resilience?: ResilienceConfig;
 }
@@ -78,6 +86,8 @@ export class HttpTransport {
   private readonly options: TransportOptions;
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
+  private readonly authQueryParams: Record<string, string>;
+  private readonly credential: ResolvedCredential;
   private readonly retryPolicy: RetryPolicy;
   private readonly circuitBreaker?: CircuitBreaker;
   private readonly rateLimiter?: RateLimiter;
@@ -90,15 +100,17 @@ export class HttpTransport {
     // Determine base URL: override > mock > manifest
     this.baseUrl = this.resolveBaseUrl();
 
+    this.credential = resolveCredential(manifest, options.credential);
+    const authMetadata = buildAuthMetadata(manifest, this.credential);
+    this.authQueryParams = authMetadata.queryParams;
+
     // Prepare headers
     this.headers = {
       'Content-Type': 'application/json',
       ...manifest.default_headers,
+      ...authMetadata.headers,
       ...options.headers,
     };
-
-    // Add authentication header
-    this.addAuthHeader();
 
     // Resilience: merge protocol + options
     const retryConfig =
@@ -142,61 +154,6 @@ export class HttpTransport {
   }
 
   /**
-   * Add authentication header based on manifest config
-   */
-  private addAuthHeader(): void {
-    const auth = this.manifest.auth;
-    if (!auth) {
-      // Try to get API key from environment variable
-      const envKey = this.getApiKeyFromEnv();
-      if (envKey) {
-        this.headers['Authorization'] = `Bearer ${envKey}`;
-      }
-      return;
-    }
-
-    let apiKey: string | undefined;
-
-    // Get API key from environment variable
-    if (auth.env_var) {
-      apiKey = process.env[auth.env_var];
-    } else {
-      apiKey = this.getApiKeyFromEnv();
-    }
-
-    if (!apiKey) {
-      return;
-    }
-
-    // Apply authentication based on type
-    switch (auth.type) {
-      case 'bearer':
-        this.headers['Authorization'] = `Bearer ${apiKey}`;
-        break;
-      case 'api_key':
-        if (auth.header_name) {
-          this.headers[auth.header_name] = apiKey;
-        } else {
-          this.headers['x-api-key'] = apiKey;
-        }
-        break;
-      case 'header':
-        if (auth.header_name) {
-          this.headers[auth.header_name] = apiKey;
-        }
-        break;
-    }
-  }
-
-  /**
-   * Get API key from environment variable
-   */
-  private getApiKeyFromEnv(): string | undefined {
-    const providerId = this.manifest.id.toUpperCase().replace(/-/g, '_');
-    return process.env[`${providerId}_API_KEY`] ?? process.env.AI_API_KEY;
-  }
-
-  /**
    * Get the endpoint path for chat completions
    */
   private getChatEndpoint(): string {
@@ -207,6 +164,14 @@ export class HttpTransport {
     return '/v1/chat/completions';
   }
 
+  private buildUrl(endpoint: string): string {
+    const url = new URL(`${this.baseUrl}${endpoint}`);
+    for (const [key, value] of Object.entries(this.authQueryParams)) {
+      url.searchParams.set(key, value);
+    }
+    return url.toString();
+  }
+
   /**
    * Execute a non-streaming request
    */
@@ -215,7 +180,7 @@ export class HttpTransport {
   ): Promise<TransportResponse<UnifiedResponse>> {
     const startTime = Date.now();
     const endpoint = this.getChatEndpoint();
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = this.buildUrl(endpoint);
 
     const doRequest = async (): Promise<TransportResponse<UnifiedResponse>> => {
       const controller = new AbortController();
@@ -299,7 +264,7 @@ export class HttpTransport {
   ): AsyncGenerator<StreamingEvent, CallStats, unknown> {
     const startTime = Date.now();
     const endpoint = this.getChatEndpoint();
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = this.buildUrl(endpoint);
 
     // Ensure streaming is enabled
     const streamRequest = { ...request, stream: true };

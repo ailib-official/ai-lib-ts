@@ -69,6 +69,28 @@ describe('credential-chain compliance', () => {
   const root = protocolRoot();
   const cases = loadCases().filter((c) => c.input.runtime_target !== 'wasm32-wasip1');
 
+  it('normalizes bearer prefix separator', () => {
+    const manifest = {
+      id: 'prefixauth',
+      endpoint: {
+        base_url: 'https://example.com',
+        auth: {
+          type: 'bearer',
+          prefix: 'Bearer',
+        },
+      },
+    } as ProtocolManifest;
+    const metadata = buildAuthMetadata(manifest, {
+      value: 'secret',
+      sourceKind: 'explicit',
+      sourceName: 'explicit',
+      requiredEnvVars: [],
+      conventionalEnvVars: [],
+    });
+
+    expect(metadata.headers).toEqual({ Authorization: 'Bearer secret' });
+  });
+
   for (const c of cases) {
     it(`${c.id}: ${c.name}`, () => {
       const manifest = loadManifest(root, c.setup.manifest_path);

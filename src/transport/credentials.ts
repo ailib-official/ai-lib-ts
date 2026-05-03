@@ -131,7 +131,8 @@ export function buildAuthMetadata(
     case 'bearer':
     default: {
       const prefix = auth.prefix ?? 'Bearer ';
-      headers[auth.header ?? auth.header_name ?? 'Authorization'] = `${prefix}${value}`;
+      const separator = prefix.endsWith(' ') ? '' : ' ';
+      headers[auth.header ?? auth.header_name ?? 'Authorization'] = `${prefix}${separator}${value}`;
       break;
     }
   }

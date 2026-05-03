@@ -1,0 +1,50 @@
+# Publish `@ailib-official/ai-lib-ts` on annotated tags `v*`.
+# Prereq: NPM_TOKEN with publish rights for the @ailib-official scope.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  npm-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout ai-protocol
+        uses: actions/checkout@v4
+        with:
+          repository: ailib-official/ai-protocol
+          path: ai-protocol
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install, verify, build
+        env:
+          AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

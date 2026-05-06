@@ -83,7 +83,16 @@
     "ajv-formats": "^3.0.1",
     "yaml": "^2.7.0"
   },
+  "peerDependencies": {
+    "@ailib-official/ai-protocol": "^0.8.4"
+  },
+  "peerDependenciesMeta": {
+    "@ailib-official/ai-protocol": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@ailib-official/ai-protocol": "^0.8.4",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.0",
     "@typescript-eslint/eslint-plugin": "^8.56.0",

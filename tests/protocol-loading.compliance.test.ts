@@ -31,6 +31,7 @@ function loadCases(): ComplianceCase[] {
     resolve(root, 'tests/compliance/cases/01-protocol-loading/load-v2-p0-generative-providers.yaml'),
     resolve(root, 'tests/compliance/cases/01-protocol-loading/load-v2-wave1-provider-expansion.yaml'),
     resolve(root, 'tests/compliance/cases/01-protocol-loading/load-v2-capability-profile-ios.yaml'),
+    resolve(root, 'tests/compliance/cases/01-protocol-loading/load-unknown-field-tolerance.yaml'),
   ];
 
   const out: ComplianceCase[] = [];

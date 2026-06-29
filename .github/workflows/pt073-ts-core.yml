@@ -49,6 +49,15 @@ jobs:
           python "${{ github.workspace }}/ai-protocol/tests/compliance/ep-boundary/check_ep_boundary.py" \
             --ts-root "${{ github.workspace }}/ai-lib-ts"
 
+      - name: ExecutionMetadata samples — schema validation
+        run: |
+          pip install fastjsonschema
+          python "${{ github.workspace }}/ai-protocol/tests/compliance/ep-boundary/validate_execution_metadata_samples.py" \
+            --protocol-root "${{ github.workspace }}/ai-protocol"
+
+      - name: Contact layer — import smoke
+        run: npx vitest run tests/contact-smoke.test.ts
+
       - name: Typecheck
         run: npm run typecheck
         env:
@@ -56,5 +65,10 @@ jobs:
 
       - name: Core compliance tests
         run: npm run test:core
+        env:
+          AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol
+
+      - name: ExecutionMetadata schema test
+        run: npx vitest run tests/execution-metadata-schema.test.ts
         env:
           AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol

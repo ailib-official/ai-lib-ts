@@ -1,0 +1,50 @@
+# PT-073 (Wave-5): TypeScript **full** compliance matrix (PT-073b).
+# Runs vitest compliance-full config including policy-heavy cases (e.g. 06-resilience).
+
+name: PT-073 TypeScript (full)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  full:
+    name: Full compliance + typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ai-lib-ts
+
+    steps:
+      - name: Checkout ai-lib-ts
+        uses: actions/checkout@v4
+        with:
+          path: ai-lib-ts
+
+      - name: Checkout ai-protocol
+        uses: actions/checkout@v4
+        with:
+          repository: ailib-official/ai-protocol
+          path: ai-protocol
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+        env:
+          AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol
+
+      - name: Compliance tests (full matrix)
+        run: npm run test:compliance:full
+        env:
+          AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol

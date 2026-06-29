@@ -47,6 +47,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:core": "vitest run --config vitest.core.config.ts",
+    "test:compliance:full": "vitest run --config vitest.compliance-full.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src tests",

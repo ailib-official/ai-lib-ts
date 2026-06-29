@@ -39,6 +39,16 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: E/P boundary — TypeScript
+        run: |
+          python "${{ github.workspace }}/ai-protocol/tests/compliance/ep-boundary/check_ep_boundary.py" \
+            --ts-root "${{ github.workspace }}/ai-lib-ts"
+
       - name: Typecheck
         run: npm run typecheck
         env:

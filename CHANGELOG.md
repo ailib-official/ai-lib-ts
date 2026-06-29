@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Migration (E/P separation)
+
+| Use case | Import path |
+|----------|-------------|
+| Execution / protocol (E-only) | `@ailib-official/ai-lib-ts/core` |
+| Policy (fallback, routing, …) | `@ailib-official/ai-lib-ts/contact` |
+| Full facade (E + P) | `@ailib-official/ai-lib-ts` (root) |
+
+Compliance CI: `npm run test:core` (E-only) vs `npm run test:compliance:full` (full matrix).
+
 ### Added
 
 - **npm protocol alignment:** optional peer dependency `@ailib-official/ai-protocol@^0.8.4` (with `peerDependenciesMeta.optional`) plus matching `devDependency` so installs resolve the published scoped protocol package alongside checkout-based `AI_PROTOCOL_DIR` workflows.

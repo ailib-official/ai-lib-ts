@@ -56,7 +56,7 @@ jobs:
             --protocol-root "${{ github.workspace }}/ai-protocol"
 
       - name: Contact layer — import smoke
-        run: node --input-type=module -e "import('./src/routing/index.js')"
+        run: npx vitest run tests/contact-smoke.test.ts
 
       - name: Typecheck
         run: npm run typecheck

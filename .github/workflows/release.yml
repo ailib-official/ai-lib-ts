@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ailib-official/ai-protocol
-          ref: v0.8.4
+          ref: "9c9613d"
           path: ai-protocol
 
       - uses: actions/setup-node@v4

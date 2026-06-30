@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **P0 (PT-073g):** tsup multi-entry builds `dist/core.*` and `dist/contact.*`; new `src/contact.ts` P-layer barrel; E-layer `transport/http.ts` split from P-layer resilience decorators.
 - **P1:** `MOCK_HTTP_URL` honored only when `AILIB_ALLOW_MOCK_URL=1` or `NODE_ENV=test`; removed hardcoded LAN mock IP default.
-- **P1:** CI workflows pin `ailib-official/ai-protocol` checkout to `v0.8.4`.
+- **P1:** CI workflows pin `ailib-official/ai-protocol` checkout to `9c9613d` (PT-073h merge; includes `--ts-root` EP check).
 - V1 manifest `feature_flags` parsing via `getFeatureFlags()`.
 
 ## Unreleased

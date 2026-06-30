@@ -159,6 +159,8 @@ export interface ProviderManifest {
   retry_policy?: RetryPolicy;
   /** V1 format: simple array */
   capabilities?: ProviderCapability[];
+  /** V1 compliance fixtures: top-level feature flags */
+  feature_flags?: FeatureFlags;
   /** V2 format: structured with required/optional/feature_flags */
   capabilitiesV2?: StructuredCapabilities;
   capability_profile?: CapabilityProfile;
@@ -266,12 +268,10 @@ export interface UnifiedResponse {
  * Helper to extract feature flags from manifest
  */
 export function getFeatureFlags(manifest: ProviderManifest): FeatureFlags | undefined {
-  // V2 format
   if (manifest.capabilitiesV2?.feature_flags) {
     return manifest.capabilitiesV2.feature_flags;
   }
-  // V1 format doesn't have feature_flags, return undefined
-  return undefined;
+  return manifest.feature_flags;
 }
 
 /**

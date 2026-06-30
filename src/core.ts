@@ -10,7 +10,7 @@ export * from './types/index.js';
 export * from './errors/index.js';
 export * from './protocol/index.js';
 export * from './protocol/v2/index.js';
-export * from './transport/index.js';
+export * from './transport/http.js';
 export * from './pipeline/index.js';
 export * from './structured/index.js';
 export * from './client/index.js';

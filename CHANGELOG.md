@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-06-30
+
+### Fixed
+
+- **P0 (PT-073g):** tsup multi-entry builds `dist/core.*` and `dist/contact.*`; new `src/contact.ts` P-layer barrel; E-layer `transport/http.ts` split from P-layer resilience decorators.
+- **P1:** `MOCK_HTTP_URL` honored only when `AILIB_ALLOW_MOCK_URL=1` or `NODE_ENV=test`; removed hardcoded LAN mock IP default.
+- **P1:** CI workflows pin `ailib-official/ai-protocol` checkout to `v0.8.4`.
+- V1 manifest `feature_flags` parsing via `getFeatureFlags()`.
+
 ## Unreleased
 
 ### Migration (E/P separation)

@@ -44,7 +44,8 @@ describe('ExecutionMetadata schema alignment', () => {
     const ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
     addFormats(ajv);
     const loaded = loadSchema() as Record<string, unknown>;
-    const { $schema: _meta, ...schema } = loaded;
+    const schema = { ...loaded };
+    delete schema.$schema;
     const validate = ajv.compile(schema);
     const ok = validate(sampleMetadata());
     if (!ok) {

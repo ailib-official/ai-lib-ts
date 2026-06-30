@@ -73,10 +73,12 @@ describe('Generative Capabilities Compliance', () => {
       const caps = rawManifest.capabilities as string[] | undefined;
       expect(caps).toBeDefined();
       
-      // Should have text and streaming
-      expect(caps).toContain('chat');
+      // Should have text and streaming (gen-001 compliance alignment)
+      expect(caps).toContain('text');
       expect(caps).toContain('streaming');
       expect(caps).toContain('tools');
+      expect(caps).toContain('reasoning');
+      expect(caps).toContain('structured_output');
     });
 
     it('should parse feature_flags from manifest', async () => {
@@ -92,23 +94,22 @@ describe('Generative Capabilities Compliance', () => {
       
       // Use helper functions to check capabilities
       const allCaps = getAllCapabilities(manifest);
-      expect(allCaps).toContain('chat');
+      expect(allCaps).toContain('text');
       expect(allCaps).toContain('streaming');
       expect(allCaps).toContain('tools');
-      
-      // Check specific capabilities
-      expect(hasCapability(manifest, 'chat')).toBe(true);
+      expect(allCaps).toContain('reasoning');
+      expect(allCaps).toContain('structured_output');
+
+      expect(hasCapability(manifest, 'text')).toBe(true);
       expect(hasCapability(manifest, 'streaming')).toBe(true);
       expect(hasCapability(manifest, 'tools')).toBe(true);
       expect(hasCapability(manifest, 'mcp_client')).toBe(true);
       
       // Check feature flags (V1 format may not have these)
       const flags = getFeatureFlags(manifest);
-      if (flags) {
-        // If feature flags exist, verify structure
-        expect(typeof flags.structured_output).toBe('boolean');
-        expect(typeof flags.extended_thinking).toBe('boolean');
-      }
+      expect(flags).toBeDefined();
+      expect(flags?.structured_output).toBe(true);
+      expect(flags?.extended_thinking).toBe(true);
     });
   });
 

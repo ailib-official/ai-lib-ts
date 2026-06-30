@@ -63,7 +63,7 @@ When running behind a corporate proxy, mirror the Rust runtime: prefer an explic
 
 ## 🔄 V2 Protocol Alignment
 
-`ai-lib-ts` aligns with the **AI-Protocol V2** specification. V0.4.0 includes V2 manifest parsing, PreflightChecker, BatchExecutor/BatchCollector, and Pipeline.fromManifest.
+`ai-lib-ts` aligns with the **AI-Protocol V2** specification. **0.5.3** ships working `/core` and `/contact` entry points, E/P transport split, and PT-073g compliance fixes.
 
 ### Standard Error Codes (V2)
 
@@ -110,6 +110,21 @@ yarn add @ailib-official/ai-lib-ts
 # or
 pnpm add @ailib-official/ai-lib-ts
 ```
+
+### E/P subpath imports (Wave-5)
+
+| Use case | Import path |
+|----------|-------------|
+| Execution layer (E-only) | `@ailib-official/ai-lib-ts/core` |
+| Policy layer (routing, resilience, …) | `@ailib-official/ai-lib-ts/contact` |
+| Full facade (E + P) | `@ailib-official/ai-lib-ts` |
+
+```typescript
+import { AiClient } from '@ailib-official/ai-lib-ts/core';
+import { RetryPolicy, ModelManager } from '@ailib-official/ai-lib-ts/contact';
+```
+
+Compliance CI: `npm run test:core` (E-only subset) vs `npm run test:compliance:full` (full matrix including policy cases).
 
 ## 🔧 Configuration
 

@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build
+        run: npm run build
+
       - name: Lint
         run: npm run lint
 
@@ -40,9 +43,6 @@ jobs:
         env:
           AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol
         run: npm test
-
-      - name: Build
-        run: npm run build
 
   mock-integration:
     name: Mock Integration

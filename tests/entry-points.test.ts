@@ -8,6 +8,8 @@ import { join } from 'node:path';
 
 const distRoot = join(import.meta.dirname, '..', 'dist');
 
+type ModuleBag = Record<string, unknown>;
+
 describe('published entry points', () => {
   it('dist artifacts exist for index, core, and contact', () => {
     for (const name of ['index', 'core', 'contact']) {
@@ -21,20 +23,20 @@ describe('published entry points', () => {
   });
 
   it('root entry exports AiClient', async () => {
-    const mod = await import('../dist/index.js');
+    const mod = (await import('../dist/index.js')) as ModuleBag;
     expect(mod.AiClient).toBeDefined();
     expect(mod.RetryPolicy).toBeDefined();
   });
 
   it('core entry exports E-layer client without resilience', async () => {
-    const mod = await import('../dist/core.js');
+    const mod = (await import('../dist/core.js')) as ModuleBag;
     expect(mod.AiClient).toBeDefined();
     expect(mod.HttpTransport).toBeDefined();
     expect(mod.RetryPolicy).toBeUndefined();
   });
 
   it('contact entry exports P-layer modules', async () => {
-    const mod = await import('../dist/contact.js');
+    const mod = (await import('../dist/contact.js')) as ModuleBag;
     expect(mod.RetryPolicy).toBeDefined();
     expect(mod.ModelManager).toBeDefined();
     expect(mod.Guardrails).toBeDefined();
@@ -44,13 +46,13 @@ describe('published entry points', () => {
 
 describe('core E/P boundary (source graph)', () => {
   it('core barrel does not re-export resilience', async () => {
-    const mod = await import('../src/core.js');
+    const mod = (await import('../src/core.js')) as ModuleBag;
     expect(mod.RetryPolicy).toBeUndefined();
     expect(mod.ModelManager).toBeUndefined();
   });
 
   it('contact barrel aggregates P modules', async () => {
-    const mod = await import('../src/contact.js');
+    const mod = (await import('../src/contact.js')) as ModuleBag;
     expect(mod.RetryPolicy).toBeDefined();
     expect(mod.ModelManager).toBeDefined();
   });

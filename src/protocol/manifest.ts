@@ -109,7 +109,17 @@ export interface CapabilityProfile {
  * Provider capability
  */
 export type ProviderCapability =
-  | 'chat' | 'streaming' | 'tools' | 'vision' | 'audio' | 'embeddings' | 'batch' | 'mcp_client';
+  | 'chat'
+  | 'text'
+  | 'streaming'
+  | 'tools'
+  | 'vision'
+  | 'audio'
+  | 'embeddings'
+  | 'batch'
+  | 'mcp_client'
+  | 'reasoning'
+  | 'structured_output';
 
 /**
  * Feature flags for fine-grained capability control

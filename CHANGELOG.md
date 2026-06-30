@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.3] - 2026-06-30
 
+### Added
+
+- E/P subpath exports: `@ailib-official/ai-lib-ts/core` and `/contact` (tsup multi-entry).
+- `npm run test:core` (E-only compliance) vs `npm run test:compliance:full` (full matrix).
+
 ### Fixed
 
 - **P0 (PT-073g):** tsup multi-entry builds `dist/core.*` and `dist/contact.*`; new `src/contact.ts` P-layer barrel; E-layer `transport/http.ts` split from P-layer resilience decorators.
@@ -16,21 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Migration (E/P separation)
-
-| Use case | Import path |
-|----------|-------------|
-| Execution / protocol (E-only) | `@ailib-official/ai-lib-ts/core` |
-| Policy (fallback, routing, …) | `@ailib-official/ai-lib-ts/contact` |
-| Full facade (E + P) | `@ailib-official/ai-lib-ts` (root) |
-
-Compliance CI: `npm run test:core` (E-only) vs `npm run test:compliance:full` (full matrix).
-
 ### Added
 
 - **npm protocol alignment:** optional peer dependency `@ailib-official/ai-protocol@^0.8.4` (with `peerDependenciesMeta.optional`) plus matching `devDependency` so installs resolve the published scoped protocol package alongside checkout-based `AI_PROTOCOL_DIR` workflows.
 - **PT-074 credential chain parity:** manifest-declared credential resolution now supports explicit overrides, `endpoint.auth` / top-level `auth` env names, conventional `<PROVIDER_ID>_API_KEY` fallback, and compliance coverage for credential resolution / auth attachment.
-- Wave-5 E/P subpath exports: `import '@ailib-official/ai-lib-ts/core'` (execution layer) and `import '@ailib-official/ai-lib-ts/contact'` (policy modules); built via tsup multi-entry.
+- Wave-5 E/P subpath exports (see 0.5.3).
 - E/P boundary types: `ExecutionResult`, `ExecutionMetadata`, `ExecutionUsage` (`src/types/execution-result.ts`).
 - **`npm run test:core`:** Vitest config `vitest.core.config.ts` runs execution-layer compliance fixtures only (matrix + advanced capabilities + protocol_loading + generative).
 - **GitHub Actions:** `.github/workflows/pt073-ts-core.yml` (typecheck + `test:core` with `AI_PROTOCOL_DIR`).

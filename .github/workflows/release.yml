@@ -43,6 +43,7 @@ jobs:
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          AI_PROTOCOL_DIR: ${{ github.workspace }}/ai-protocol
         run: npm publish --access public
 
       - name: GitHub Release

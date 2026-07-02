@@ -85,6 +85,12 @@ export {
   parseManifestV2,
   loadManifestV2FromUrl,
   loadManifestV2FromPath,
+  anthropicMessagesContract,
+  geminiGenerateContract,
+  contractForApiStyle,
+  parseProviderContract,
+  defaultMime,
+  rejectsRefBeforeEncode,
 } from './protocol/v2/index.js';
 export type {
   ManifestV2,
@@ -96,7 +102,20 @@ export type {
   McpConfig,
   ComputerUseConfig,
   MultimodalConfig,
+  ProviderContract,
+  RequestMappingContract,
+  ContentBlockMapping,
+  DocumentBlockMapping,
 } from './protocol/v2/index.js';
+
+export {
+  encodeBlocksAnthropic,
+  encodeBlocksGemini,
+  encodeBlocksForAnthropicContract,
+  encodeBlocksForGeminiContract,
+  encodeBlocksForApiStyle,
+} from './types/manifest-encode.js';
+export type { EncodeBlock, EncodedWire } from './types/manifest-encode.js';
 
 // Transport
 export { HttpTransport, createTransport, MOCK_SERVER_URL } from './transport/index.js';

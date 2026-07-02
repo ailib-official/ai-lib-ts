@@ -37,3 +37,12 @@ export type {
   ExecutionResult,
   ExecutionUsage,
 } from './execution-result.js';
+
+export {
+  encodeBlocksAnthropic,
+  encodeBlocksGemini,
+  encodeBlocksForAnthropicContract,
+  encodeBlocksForGeminiContract,
+  encodeBlocksForApiStyle,
+} from './manifest-encode.js';
+export type { EncodeBlock, EncodedWire } from './manifest-encode.js';

@@ -1,3 +1,5 @@
+import { cpSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
@@ -18,5 +20,11 @@ export default defineConfig({
     options.banner = {
       js: '// @ailib-official/ai-lib-ts - AI-Protocol TypeScript Runtime',
     };
+  },
+  onSuccess: async () => {
+    const srcEmbedded = 'src/protocol/v2/embedded';
+    const destEmbedded = 'dist/embedded';
+    mkdirSync(dirname(join(destEmbedded, 'placeholder')), { recursive: true });
+    cpSync(srcEmbedded, destEmbedded, { recursive: true });
   },
 });

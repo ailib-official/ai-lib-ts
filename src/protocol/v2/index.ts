@@ -19,3 +19,21 @@ export {
   loadManifestV2FromUrl,
   loadManifestV2FromPath,
 } from './loader.js';
+
+export {
+  anthropicMessagesContract,
+  geminiGenerateContract,
+  contractForApiStyle,
+} from './contracts.js';
+
+export {
+  parseProviderContract,
+  defaultMime,
+  rejectsRefBeforeEncode,
+} from './provider-contract.js';
+export type {
+  ProviderContract,
+  RequestMappingContract,
+  ContentBlockMapping,
+  DocumentBlockMapping,
+} from './provider-contract.js';

@@ -16,6 +16,7 @@ export default defineConfig({
       'tests/generative.compliance.test.ts',
       'tests/credential-chain.compliance.test.ts',
       'tests/text-tool-compliance.test.ts',
+      'tests/content-block-encoding.compliance.test.ts',
       'tests/retry-policy.compliance.test.ts',
     ],
   },

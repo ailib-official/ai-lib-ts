@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ailib-official/ai-protocol
-          ref: main
+          ref: v1.0.0
           path: ai-protocol
 
       - name: Setup Node.js
@@ -48,18 +48,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: E/P boundary â€” TypeScript
+      - name: E/P boundary â€?TypeScript
         run: |
           python "${{ github.workspace }}/ai-protocol/tests/compliance/ep-boundary/check_ep_boundary.py" \
             --ts-root "${{ github.workspace }}/ai-lib-ts"
 
-      - name: ExecutionMetadata samples â€” schema validation
+      - name: ExecutionMetadata samples â€?schema validation
         run: |
           pip install fastjsonschema
           python "${{ github.workspace }}/ai-protocol/tests/compliance/ep-boundary/validate_execution_metadata_samples.py" \
             --protocol-root "${{ github.workspace }}/ai-protocol"
 
-      - name: Contact layer â€” import smoke
+      - name: Contact layer â€?import smoke
         run: npx vitest run tests/contact-smoke.test.ts
 
       - name: Typecheck

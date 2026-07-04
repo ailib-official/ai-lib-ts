@@ -6,7 +6,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseAllDocuments } from 'yaml';
-import { StandardTextToolParser } from '../src/types/text-tool.js';
+import { StandardTextToolParser, parseHybridToolCalls } from '../src/types/text-tool.js';
+import type { TextParsedToolCall } from '../src/types/text-tool.js';
 import type { ToolDefinition } from '../src/types/tool.js';
 import { protocolRoot } from './helpers/protocol-root.js';
 
@@ -45,6 +46,35 @@ function evalTextToolParse(c: CaseDoc): void {
   }
 }
 
+function evalTextToolHybrid(c: CaseDoc): void {
+  const config = (c.input.config as Record<string, unknown>) ?? {};
+  const parser = new StandardTextToolParser({
+    lenientParsing: Boolean(config.lenient_parsing ?? true),
+  });
+  const nativeRaw = (c.input.native_tool_calls as Array<Record<string, unknown>>) ?? [];
+  const nativeCalls: TextParsedToolCall[] = nativeRaw.map((item) => ({
+    id: String(item.id ?? ''),
+    name: String(item.name ?? ''),
+    arguments: (item.arguments as Record<string, unknown>) ?? {},
+  }));
+  const { remainingText, toolCalls } = parseHybridToolCalls(
+    parser,
+    String(c.input.content ?? ''),
+    nativeCalls,
+  );
+  if ('remaining_text' in c.expected) {
+    expect(remainingText.trim()).toBe(String(c.expected.remaining_text).trim());
+  }
+  const expectedCalls = (c.expected.tool_calls as Array<Record<string, unknown>>) ?? [];
+  expect(toolCalls.length).toBe(expectedCalls.length);
+  for (let i = 0; i < expectedCalls.length; i++) {
+    expect(toolCalls[i]?.name).toBe(expectedCalls[i]?.name);
+    if (expectedCalls[i]?.arguments) {
+      expect(toolCalls[i]?.arguments).toEqual(expectedCalls[i]?.arguments);
+    }
+  }
+}
+
 function evalTextToolPrompt(c: CaseDoc): void {
   const config = (c.input.config as Record<string, unknown>) ?? {};
   const parser = new StandardTextToolParser({
@@ -70,6 +100,8 @@ describe('text tool call compliance', () => {
       const testType = c.input.type as string;
       if (testType === 'text_tool_parse') {
         evalTextToolParse(c);
+      } else if (testType === 'text_tool_hybrid') {
+        evalTextToolHybrid(c);
       } else if (testType === 'text_tool_prompt') {
         evalTextToolPrompt(c);
       }

@@ -8,6 +8,12 @@ import type { ToolDefinition } from './tool.js';
 
 export type PromptLevel = 'L1' | 'L2' | 'L3';
 
+export type TextToolDeviation =
+  | 'standard_tool_call'
+  | 'shell'
+  | 'bash'
+  | 'dsml';
+
 export interface TextToolConfig {
   lenientParsing?: boolean;
   maxCallDepth?: number;
@@ -34,6 +40,79 @@ const SHELL_DIALECT_RE = /<shell>\s*<command>([\s\S]*?)<\/command>\s*<\/shell>/;
 const BASH_DIALECT_RE = /<bash>([\s\S]*?)<\/bash>/;
 const OUTER_WRAPPER_RE = /<tool_calls>\s*([\s\S]*?)\s*<\/tool_calls>/;
 const NAME_ATTR_RE = /name="([^"]+)"/;
+// DeepSeek DSML: `<` + `｜｜DSML｜｜` (U+FF5C fullwidth vertical line)
+const DSML_TAG = '\uFF5C\uFF5CDSML\uFF5C\uFF5C';
+const DSML_INVOKE_RE = new RegExp(
+  `<${DSML_TAG}invoke\\s+name="([^"]+)">([\\s\\S]*?)</${DSML_TAG}invoke>`,
+  'g',
+);
+const DSML_PARAMETER_RE = new RegExp(
+  `<${DSML_TAG}parameter\\s+name="([^"]+)"[^>]*>([\\s\\S]*?)</${DSML_TAG}parameter>`,
+  'g',
+);
+const DSML_WRAPPER_RE = new RegExp(
+  `<${DSML_TAG}tool_calls>\\s*([\\s\\S]*?)\\s*</${DSML_TAG}tool_calls>`,
+);
+
+export function detectTextToolDeviation(text: string): TextToolDeviation | null {
+  if (text.includes(DSML_TAG)) return 'dsml';
+  if (SHELL_DIALECT_RE.test(text)) return 'shell';
+  if (BASH_DIALECT_RE.test(text)) return 'bash';
+  if (/<tool_call(?:\s+[^>]*)?>/.test(text)) return 'standard_tool_call';
+  return null;
+}
+
+export interface TextToolParseLike {
+  parse(responseText: string): { remainingText: string; toolCalls: TextParsedToolCall[] };
+}
+
+export function parseHybridToolCalls(
+  parser: TextToolParseLike,
+  content: string,
+  nativeCalls: TextParsedToolCall[],
+): { remainingText: string; toolCalls: TextParsedToolCall[] } {
+  if (nativeCalls.length > 0) {
+    return { remainingText: content, toolCalls: [...nativeCalls] };
+  }
+  return parser.parse(content);
+}
+
+function parseDsmlDialect(text: string): {
+  toolCalls: TextParsedToolCall[];
+  spansToRemove: Array<{ start: number; end: number }>;
+} {
+  const toolCalls: TextParsedToolCall[] = [];
+  let spansToRemove: Array<{ start: number; end: number }> = [];
+
+  for (const match of text.matchAll(DSML_INVOKE_RE)) {
+    const toolName = (match[1] ?? '').trim();
+    if (!toolName) continue;
+    const body = match[2] ?? '';
+    const arguments_: Record<string, unknown> = {};
+    for (const param of body.matchAll(DSML_PARAMETER_RE)) {
+      const key = param[1] ?? '';
+      const value = (param[2] ?? '').trim();
+      if (key) arguments_[key] = value;
+    }
+    const idx = toolCalls.length;
+    toolCalls.push({ id: `text_tool_${idx}`, name: toolName, arguments: arguments_ });
+    spansToRemove.push({
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+    });
+  }
+
+  if (toolCalls.length > 0) {
+    const wrapper = DSML_WRAPPER_RE.exec(text);
+    if (wrapper) {
+      spansToRemove = [
+        { start: wrapper.index ?? 0, end: (wrapper.index ?? 0) + wrapper[0].length },
+      ];
+    }
+  }
+
+  return { toolCalls, spansToRemove };
+}
 
 function unwrapToolCallsWrapper(text: string): string {
   const match = OUTER_WRAPPER_RE.exec(text);
@@ -102,23 +181,29 @@ function parseTextToolCalls(
   }
 
   if (config.lenientParsing && toolCalls.length === 0) {
-    const shellMatch = SHELL_DIALECT_RE.exec(remaining);
-    if (shellMatch) {
-      const cmd = (shellMatch[1] ?? '').trim();
-      toolCalls.push({ id: 'text_tool_0', name: 'shell', arguments: { command: cmd } });
-      spansToRemove.push({
-        start: shellMatch.index ?? 0,
-        end: (shellMatch.index ?? 0) + shellMatch[0].length,
-      });
+    const { toolCalls: dsmlCalls, spansToRemove: dsmlSpans } = parseDsmlDialect(remaining);
+    if (dsmlCalls.length > 0) {
+      toolCalls.push(...dsmlCalls);
+      spansToRemove.push(...dsmlSpans);
     } else {
-      const bashMatch = BASH_DIALECT_RE.exec(remaining);
-      if (bashMatch) {
-        const cmd = (bashMatch[1] ?? '').trim();
+      const shellMatch = SHELL_DIALECT_RE.exec(remaining);
+      if (shellMatch) {
+        const cmd = (shellMatch[1] ?? '').trim();
         toolCalls.push({ id: 'text_tool_0', name: 'shell', arguments: { command: cmd } });
         spansToRemove.push({
-          start: bashMatch.index ?? 0,
-          end: (bashMatch.index ?? 0) + bashMatch[0].length,
+          start: shellMatch.index ?? 0,
+          end: (shellMatch.index ?? 0) + shellMatch[0].length,
         });
+      } else {
+        const bashMatch = BASH_DIALECT_RE.exec(remaining);
+        if (bashMatch) {
+          const cmd = (bashMatch[1] ?? '').trim();
+          toolCalls.push({ id: 'text_tool_0', name: 'shell', arguments: { command: cmd } });
+          spansToRemove.push({
+            start: bashMatch.index ?? 0,
+            end: (bashMatch.index ?? 0) + bashMatch[0].length,
+          });
+        }
       }
     }
   }

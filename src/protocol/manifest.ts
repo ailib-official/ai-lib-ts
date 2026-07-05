@@ -294,7 +294,7 @@ export function getToolCalling(
 ): Record<string, unknown> | undefined {
   const nested = manifest.capabilitiesV2?.tool_calling;
   if (nested != null) return nested;
-  const root = (manifest as Record<string, unknown>).tool_calling;
+  const root = (manifest as unknown as Record<string, unknown>).tool_calling;
   return root != null && typeof root === 'object'
     ? (root as Record<string, unknown>)
     : undefined;

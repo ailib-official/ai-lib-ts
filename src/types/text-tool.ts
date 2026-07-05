@@ -8,11 +8,18 @@ import type { ToolDefinition } from './tool.js';
 
 export type PromptLevel = 'L1' | 'L2' | 'L3';
 
+export type NativeStrategy = 'full' | 'hybrid' | 'text_only';
+
 export type TextToolDeviation =
   | 'standard_tool_call'
   | 'shell'
   | 'bash'
   | 'dsml';
+
+export interface KnownDialect {
+  tag: string;
+  mapTo?: string;
+}
 
 export interface TextToolConfig {
   lenientParsing?: boolean;
@@ -21,6 +28,7 @@ export interface TextToolConfig {
   promptLevel?: PromptLevel;
   locale?: string;
   argsKey?: string;
+  dialects?: KnownDialect[];
 }
 
 export interface TextParsedToolCall {
@@ -35,8 +43,16 @@ export interface TextToolResult {
   isError?: boolean;
 }
 
+export interface ToolCallingPolicy {
+  nativeStrategy: NativeStrategy;
+  parser: StandardTextToolParser;
+  sendNativeToolSpecs(): boolean;
+  preferNativeDispatcher(): boolean;
+}
+
 const TOOL_CALL_BLOCK_RE = /<tool_call(?:\s+[^>]*)?>([\s\S]*?)<\/tool_call>/g;
 const SHELL_DIALECT_RE = /<shell>\s*<command>([\s\S]*?)<\/command>\s*<\/shell>/;
+const SHELL_PLAIN_BODY_RE = /<shell>\s*([\s\S]*?)\s*<\/shell>/;
 const BASH_DIALECT_RE = /<bash>([\s\S]*?)<\/bash>/;
 const OUTER_WRAPPER_RE = /<tool_calls>\s*([\s\S]*?)\s*<\/tool_calls>/;
 const NAME_ATTR_RE = /name="([^"]+)"/;
@@ -54,9 +70,52 @@ const DSML_WRAPPER_RE = new RegExp(
   `<${DSML_TAG}tool_calls>\\s*([\\s\\S]*?)\\s*</${DSML_TAG}tool_calls>`,
 );
 
+function defaultLenientParser(): StandardTextToolParser {
+  return new StandardTextToolParser({
+    lenientParsing: true,
+    promptLevel: 'L2',
+    includeCounterexamples: true,
+  });
+}
+
+function inferNativeStrategy(toolCalling: Record<string, unknown>): NativeStrategy {
+  const native = (toolCalling.native ?? {}) as Record<string, unknown>;
+  if (!native.supported) return 'text_only';
+
+  const reliability = String(native.reliability ?? 'unreliable');
+  const hasTextFallback = toolCalling.text_fallback != null;
+
+  if (reliability === 'full') return 'full';
+  if (reliability === 'partial' && hasTextFallback) return 'hybrid';
+  if (reliability === 'partial') return 'full';
+  if (hasTextFallback) return 'text_only';
+  return 'full';
+}
+
+export function createToolCallingPolicy(
+  toolCalling: Record<string, unknown> | null | undefined,
+): ToolCallingPolicy {
+  const parser =
+    toolCalling != null
+      ? StandardTextToolParser.fromManifestToolCalling(toolCalling)
+      : defaultLenientParser();
+  const nativeStrategy =
+    toolCalling != null ? inferNativeStrategy(toolCalling) : 'text_only';
+  return {
+    nativeStrategy,
+    parser,
+    sendNativeToolSpecs() {
+      return nativeStrategy === 'full' || nativeStrategy === 'hybrid';
+    },
+    preferNativeDispatcher() {
+      return this.sendNativeToolSpecs();
+    },
+  };
+}
+
 export function detectTextToolDeviation(text: string): TextToolDeviation | null {
   if (text.includes(DSML_TAG)) return 'dsml';
-  if (SHELL_DIALECT_RE.test(text)) return 'shell';
+  if (SHELL_DIALECT_RE.test(text) || SHELL_PLAIN_BODY_RE.test(text)) return 'shell';
   if (BASH_DIALECT_RE.test(text)) return 'bash';
   if (/<tool_call(?:\s+[^>]*)?>/.test(text)) return 'standard_tool_call';
   return null;
@@ -75,6 +134,83 @@ export function parseHybridToolCalls(
     return { remainingText: content, toolCalls: [...nativeCalls] };
   }
   return parser.parse(content);
+}
+
+function shellToolCall(command: string, mapTo: string, idx: number): TextParsedToolCall {
+  const name = mapTo || 'shell';
+  return { id: `text_tool_${idx}`, name, arguments: { command } };
+}
+
+function tryParseConfiguredDialects(
+  text: string,
+  dialects: KnownDialect[],
+): { call: TextParsedToolCall; span: { start: number; end: number } } | null {
+  for (const dialect of dialects) {
+    if (dialect.tag === 'shell') {
+      const structured = SHELL_DIALECT_RE.exec(text);
+      if (structured) {
+        const cmd = (structured[1] ?? '').trim();
+        return {
+          call: shellToolCall(cmd, dialect.mapTo ?? '', 0),
+          span: {
+            start: structured.index ?? 0,
+            end: (structured.index ?? 0) + structured[0].length,
+          },
+        };
+      }
+      const plain = SHELL_PLAIN_BODY_RE.exec(text);
+      if (plain) {
+        const body = (plain[1] ?? '').trim();
+        if (body.startsWith('<command>')) continue;
+        return {
+          call: shellToolCall(body, dialect.mapTo ?? '', 0),
+          span: { start: plain.index ?? 0, end: (plain.index ?? 0) + plain[0].length },
+        };
+      }
+    } else if (dialect.tag === 'bash') {
+      const bash = BASH_DIALECT_RE.exec(text);
+      if (bash) {
+        const cmd = (bash[1] ?? '').trim();
+        return {
+          call: shellToolCall(cmd, dialect.mapTo ?? '', 0),
+          span: { start: bash.index ?? 0, end: (bash.index ?? 0) + bash[0].length },
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function tryParseLegacyDialects(
+  text: string,
+): { call: TextParsedToolCall; span: { start: number; end: number } } | null {
+  const structured = SHELL_DIALECT_RE.exec(text);
+  if (structured) {
+    const cmd = (structured[1] ?? '').trim();
+    return {
+      call: shellToolCall(cmd, 'shell', 0),
+      span: { start: structured.index ?? 0, end: (structured.index ?? 0) + structured[0].length },
+    };
+  }
+  const plain = SHELL_PLAIN_BODY_RE.exec(text);
+  if (plain) {
+    const body = (plain[1] ?? '').trim();
+    if (!body.startsWith('<command>')) {
+      return {
+        call: shellToolCall(body, 'shell', 0),
+        span: { start: plain.index ?? 0, end: (plain.index ?? 0) + plain[0].length },
+      };
+    }
+  }
+  const bash = BASH_DIALECT_RE.exec(text);
+  if (bash) {
+    const cmd = (bash[1] ?? '').trim();
+    return {
+      call: shellToolCall(cmd, 'shell', 0),
+      span: { start: bash.index ?? 0, end: (bash.index ?? 0) + bash[0].length },
+    };
+  }
+  return null;
 }
 
 function parseDsmlDialect(text: string): {
@@ -159,7 +295,7 @@ function parseJsonBody(
 
 function parseTextToolCalls(
   text: string,
-  config: Required<Pick<TextToolConfig, 'lenientParsing'>>,
+  config: Pick<TextToolConfig, 'lenientParsing' | 'dialects'>,
 ): { remainingText: string; toolCalls: TextParsedToolCall[] } {
   const toolCalls: TextParsedToolCall[] = [];
   let remaining = config.lenientParsing ? unwrapToolCallsWrapper(text) : text;
@@ -186,24 +322,14 @@ function parseTextToolCalls(
       toolCalls.push(...dsmlCalls);
       spansToRemove.push(...dsmlSpans);
     } else {
-      const shellMatch = SHELL_DIALECT_RE.exec(remaining);
-      if (shellMatch) {
-        const cmd = (shellMatch[1] ?? '').trim();
-        toolCalls.push({ id: 'text_tool_0', name: 'shell', arguments: { command: cmd } });
-        spansToRemove.push({
-          start: shellMatch.index ?? 0,
-          end: (shellMatch.index ?? 0) + shellMatch[0].length,
-        });
-      } else {
-        const bashMatch = BASH_DIALECT_RE.exec(remaining);
-        if (bashMatch) {
-          const cmd = (bashMatch[1] ?? '').trim();
-          toolCalls.push({ id: 'text_tool_0', name: 'shell', arguments: { command: cmd } });
-          spansToRemove.push({
-            start: bashMatch.index ?? 0,
-            end: (bashMatch.index ?? 0) + bashMatch[0].length,
-          });
-        }
+      const dialects = config.dialects ?? [];
+      const dialectResult =
+        dialects.length > 0
+          ? tryParseConfiguredDialects(remaining, dialects)
+          : tryParseLegacyDialects(remaining);
+      if (dialectResult) {
+        toolCalls.push(dialectResult.call);
+        spansToRemove.push(dialectResult.span);
       }
     }
   }
@@ -285,6 +411,7 @@ export class StandardTextToolParser {
   parse(responseText: string): { remainingText: string; toolCalls: TextParsedToolCall[] } {
     return parseTextToolCalls(responseText, {
       lenientParsing: this.config.lenientParsing ?? false,
+      dialects: this.config.dialects,
     });
   }
 
@@ -309,16 +436,33 @@ export class StandardTextToolParser {
     const config: TextToolConfig = {
       lenientParsing: true,
       promptLevel: 'L2',
+      dialects: [],
     };
-    const fallback = (toolCalling.text_fallback ?? {}) as Record<string, unknown>;
-    const level = String(fallback.prompt_level ?? 'L2').toUpperCase();
-    if (level === 'L1' || level === 'L2' || level === 'L3') {
-      config.promptLevel = level;
+    const fallback = toolCalling.text_fallback;
+    if (fallback != null && fallback !== false) {
+      const fb = (typeof fallback === 'object' ? fallback : {}) as Record<string, unknown>;
+      const level = String(fb.prompt_level ?? 'L2').toUpperCase();
+      if (level === 'L1' || level === 'L2' || level === 'L3') {
+        config.promptLevel = level;
+      }
+      if (typeof fb.args_key === 'string') {
+        config.argsKey = fb.args_key;
+      }
+      const known = fb.known_dialects;
+      if (Array.isArray(known)) {
+        for (const entry of known) {
+          if (!entry || typeof entry !== 'object') continue;
+          const tag = (entry as Record<string, unknown>).tag;
+          if (typeof tag !== 'string' || !tag) continue;
+          const mapTo = (entry as Record<string, unknown>).map_to;
+          config.dialects!.push({
+            tag,
+            mapTo: typeof mapTo === 'string' ? mapTo : '',
+          });
+        }
+      }
+      config.includeCounterexamples = config.promptLevel !== 'L1';
     }
-    if (typeof fallback.args_key === 'string') {
-      config.argsKey = fallback.args_key;
-    }
-    config.includeCounterexamples = config.promptLevel !== 'L1';
     const native = (toolCalling.native ?? {}) as Record<string, unknown>;
     if (native.reliability === 'full') {
       config.lenientParsing = false;

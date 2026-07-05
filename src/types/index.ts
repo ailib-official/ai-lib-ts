@@ -24,14 +24,22 @@ export type { TerminationReasonType } from './events.js';
 export { Tool } from './tool.js';
 export type { ToolDefinition, ToolCall, ParsedToolCall, ToolChoice } from './tool.js';
 
-export { StandardTextToolParser, detectTextToolDeviation, parseHybridToolCalls } from './text-tool.js';
+export {
+  StandardTextToolParser,
+  createToolCallingPolicy,
+  detectTextToolDeviation,
+  parseHybridToolCalls,
+} from './text-tool.js';
 export type {
   PromptLevel,
+  NativeStrategy,
+  KnownDialect,
   TextToolConfig,
   TextParsedToolCall,
   TextToolResult,
   TextToolDeviation,
   TextToolParseLike,
+  ToolCallingPolicy,
 } from './text-tool.js';
 
 export type {

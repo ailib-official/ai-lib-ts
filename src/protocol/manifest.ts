@@ -146,6 +146,8 @@ export interface StructuredCapabilities {
   required: ProviderCapability[];
   optional?: ProviderCapability[];
   feature_flags?: FeatureFlags;
+  /** VL-TTC manifest block (R0 parity with ai-lib-rust). */
+  tool_calling?: Record<string, unknown>;
 }
 
 /**
@@ -282,6 +284,20 @@ export function getFeatureFlags(manifest: ProviderManifest): FeatureFlags | unde
     return manifest.capabilitiesV2.feature_flags;
   }
   return manifest.feature_flags;
+}
+
+/**
+ * Unified `tool_calling` block: V2 nests under capabilities; root-level keys may remain on manifest.
+ */
+export function getToolCalling(
+  manifest: ProviderManifest,
+): Record<string, unknown> | undefined {
+  const nested = manifest.capabilitiesV2?.tool_calling;
+  if (nested != null) return nested;
+  const root = (manifest as Record<string, unknown>).tool_calling;
+  return root != null && typeof root === 'object'
+    ? (root as Record<string, unknown>)
+    : undefined;
 }
 
 /**

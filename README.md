@@ -1,26 +1,33 @@
 # ai-lib-ts
 
-**Official TypeScript Runtime for AI-Protocol** - The canonical TypeScript/Node.js implementation for unified AI model interaction.
+**Protocol runtime for [AI-Protocol](https://github.com/ailib-official/ai-protocol)** — TypeScript / Node.js reference implementation (v**1.0.0**).
 
-[![npm version](https://img.shields.io/npm/v/@ailib-official/ai-lib-ts.svg)](https://www.npmjs.com/package/@ailib-official/ai-lib-ts)
-[![Node 18+](https://img.shields.io/badge/node-18+-green.svg)](https://nodejs.org/)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green.svg)](LICENSE)
+`@ailib-official/ai-lib-ts` ships three entry points:
 
-## 🎯 Design Philosophy
+| Import | Layer | Use when |
+|--------|-------|----------|
+| `@ailib-official/ai-lib-ts` | E + P facade | Full SDK (default) |
+| `@ailib-official/ai-lib-ts/core` | Execution only | Edge / minimal bundle — no resilience routing |
+| `@ailib-official/ai-lib-ts/contact` | Policy only | Retry, circuit breaker, routing — no `AiClient` |
 
-`ai-lib-ts` is the official TypeScript runtime implementation for the [AI-Protocol](https://github.com/ailib-official/ai-protocol) specification. It embodies the core design principle:
+## How it works
 
-> **一切逻辑皆算子，一切配置皆协议** (All logic is operators, all configuration is protocol)
+**Default chat path:** `AiClient` loads a manifest → builds requests from manifest fields → sends HTTP via **`HttpTransport`** → parses JSON / SSE with manifest `response_paths` and OpenAI-style fallbacks.
 
-Unlike traditional adapter libraries that hardcode provider-specific logic, `ai-lib-ts` is a **protocol-driven runtime** that executes AI-Protocol specifications. This means:
+This is **not** the low-level `Pipeline` operator path (that API exists for compliance / advanced use, but `AiClient` does not call `Pipeline.process()` for chat). There is **no** `ProviderDriver` in this runtime.
 
-- **Zero hardcoded provider logic**: All behavior is driven by protocol manifests (YAML/JSON configurations)
-- **Operator-based architecture**: Processing is done through composable operators (Decoder → Selector → EventMapper)
-- **Unified interface**: Developers interact with a single, consistent API regardless of the underlying provider
+| Layer | Modules | Responsibility |
+|-------|---------|----------------|
+| Execution (E) | `client`, `protocol`, `transport/http`, `pipeline`, `types`, `structured`, `mcp`, embeddings/STT/TTS/rerank | HTTP, parsing, types |
+| Policy (P) | `resilience`, `routing`, `cache`, `batch`, `telemetry`, `guardrails`, `transport` (wrapper) | Retry, limits, routing — partially auto on default transport |
+| Facade | package root | Re-exports both layers |
 
-## 🚀 Quick Start
+## Quick start
 
-### Basic Usage
+```bash
+npm install @ailib-official/ai-lib-ts
+export OPENAI_API_KEY="your-key"
+```
 
 ```typescript
 import { AiClient, Message } from '@ailib-official/ai-lib-ts';
@@ -30,139 +37,36 @@ const client = await AiClient.new('openai/gpt-4o');
 const response = await client
   .chat([
     Message.system('You are a helpful assistant.'),
-    Message.user("Hello! What's 2+2?"),
+    Message.user('Hello!'),
   ])
   .execute();
 
 console.log(response.content);
-// Output: 2+2 equals 4.
 ```
 
-### HTTP and proxies (aligned with ai-lib-rust)
-
-When running behind a corporate proxy, mirror the Rust runtime: prefer an explicit app-level proxy URL where your transport supports it, set `NO_PROXY` (and provider-specific exclusions) so vendor APIs and local mocks are not sent through the wrong path, and document the same `AI_PROXY_URL` / `HTTP(S)_PROXY` semantics for operators. Non-streaming responses honor manifest `response_paths` with OpenAI Chat Completions fallbacks; streaming OpenAI-style frames use path-based mapping from `streaming.content_path` / `tool_call_path` / `usage_path` when `streaming.decoder.strategy` is `openai_chat` (see cross-runtime notes in ai-lib-plans).
-
-## ✨ Features
-
-- **Protocol-Driven**: All behavior is driven by YAML/JSON protocol files
-- **Unified Interface**: Single API for all AI providers (OpenAI, Anthropic, DeepSeek, etc.)
-- **Streaming First**: Native async streaming with `for await`
-- **Type Safe**: Full TypeScript types for requests, responses, and errors
-- **Production Ready**: Built-in retry, rate limiting, circuit breaker, backpressure, and preflight
-- **Extensible**: Easy to add new providers via protocol configuration
-- **Multimodal**: Support for text, images (base64/URL), audio, video
-- **Token Counting**: Cost estimation and token estimation
-- **Request Batching**: BatchExecutor and BatchCollector for parallel execution
-- **Model Routing**: ModelManager with Cost/Quality/RoundRobin selectors
-- **Embeddings**: EmbeddingClient for vector generation
-- **Structured Output**: JSON mode with schema config
-- **Response Caching**: MemoryCache with TTL support
-- **Plugin System**: PluginRegistry and HookManager
-- **Stream Cancellation**: CancelHandle for cancellable streaming
-- **MCP Bridge**: McpToolBridge for MCP tools ↔ AI-Protocol format
-
-## 🔄 V2 Protocol Alignment
-
-`ai-lib-ts` aligns with the **AI-Protocol V2** specification. **0.5.3** ships working `/core` and `/contact` entry points, E/P transport split, and PT-073g compliance fixes.
-
-### Standard Error Codes (V2)
-
-All provider errors are classified into 13 standard error codes with unified retry/fallback semantics:
-
-| Code   | Name             | Retryable | Fallbackable |
-|--------|------------------|-----------|--------------|
-| E1001  | invalid_request  | No        | No           |
-| E1002  | authentication   | No        | Yes          |
-| E1003  | permission_denied| No        | No           |
-| E1004  | not_found        | No        | No           |
-| E1005  | request_too_large| No        | No           |
-| E2001  | rate_limited     | Yes       | Yes          |
-| E2002  | quota_exhausted  | No        | Yes          |
-| E3001  | server_error     | Yes       | Yes          |
-| E3002  | overloaded       | Yes       | Yes          |
-| E3003  | timeout          | Yes       | Yes          |
-| E4001  | conflict         | Yes       | No           |
-| E4002  | cancelled        | No        | No           |
-| E9999  | unknown          | No        | No           |
-
-### Testing with ai-protocol-mock
-
-For integration tests without real API calls, use [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock):
+### Mock server (integration tests)
 
 ```typescript
-import { createClientBuilder } from '@ailib-official/ai-lib-ts';
+import { Message, createClientBuilder } from '@ailib-official/ai-lib-ts';
 
-// Set environment variable
-process.env.MOCK_HTTP_URL = 'http://localhost:4010';
-
-// Or use builder method
 const client = await createClientBuilder()
   .withMockServer('http://localhost:4010')
   .build('openai/gpt-4o');
+
+const response = await client
+  .chat([Message.user('Hello!')])
+  .execute();
 ```
 
-## 📦 Installation
+Requires a running [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock). Mock URL override is allowed when `AILIB_ALLOW_MOCK_URL=1` or `NODE_ENV=test`.
 
-```bash
-npm install @ailib-official/ai-lib-ts
-# or
-yarn add @ailib-official/ai-lib-ts
-# or
-pnpm add @ailib-official/ai-lib-ts
-```
-
-### E/P subpath imports (Wave-5)
-
-| Use case | Import path |
-|----------|-------------|
-| Execution layer (E-only) | `@ailib-official/ai-lib-ts/core` |
-| Policy layer (routing, resilience, …) | `@ailib-official/ai-lib-ts/contact` |
-| Full facade (E + P) | `@ailib-official/ai-lib-ts` |
-
-```typescript
-import { AiClient } from '@ailib-official/ai-lib-ts/core';
-import { RetryPolicy, ModelManager } from '@ailib-official/ai-lib-ts/contact';
-```
-
-Compliance CI: `npm run test:core` (E-only subset) vs `npm run test:compliance:full` (full matrix including policy cases).
-
-## 🔧 Configuration
-
-The library automatically looks for protocol manifests in:
-
-1. `node_modules/ai-protocol/dist` or `node_modules/@ailib-official/ai-protocol/dist` (legacy: `node_modules/@hiddenpath/ai-protocol/dist`)
-2. `../ai-protocol/dist`, `./protocols`
-3. GitHub raw `ailib-official/ai-protocol` (main)
-
-### Provider API Keys
-
-ai-lib-ts resolves provider credentials through the unified PT-074 BYOK chain:
-
-1. explicit application override;
-2. manifest-declared env from `endpoint.auth` or V1 top-level `auth`;
-3. conventional `<PROVIDER_ID>_API_KEY`;
-4. external resolvers when a host application wires them in.
-
-Diagnostics expose only source metadata and env var names, never raw key values.
-
-```bash
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-export DEEPSEEK_API_KEY="..."
-```
-
-## 🚀 Usage Examples
+Pattern source: `tests/integration.test.ts`.
 
 ### Streaming
 
 ```typescript
-const client = await AiClient.new('anthropic/claude-3-5-sonnet');
-
 const stream = client
-  .chat([
-    Message.system('You are a helpful assistant.'),
-    Message.user('Tell me a short story.'),
-  ])
+  .chat([Message.user('Count from 1 to 5')])
   .stream()
   .executeStream();
 
@@ -173,281 +77,113 @@ for await (const event of stream) {
 }
 ```
 
-### Tool Calling
+### Tool calling
 
 ```typescript
-import { Tool } from '@ailib-official/ai-lib-ts';
-
-const weatherTool = Tool.define(
-  'get_weather',
-  {
-    type: 'object',
-    properties: {
-      location: { type: 'string', description: 'City name' },
-      unit: { type: 'string', enum: ['celsius', 'fahrenheit'] },
-    },
-    required: ['location'],
-  },
-  'Get current weather for a location'
-);
-
 const response = await client
   .chat([Message.user("What's the weather in Tokyo?")])
-  .tools([weatherTool])
+  .tools([
+    {
+      name: 'get_weather',
+      description: 'Get weather',
+      parameters: {
+        type: 'object',
+        properties: { city: { type: 'string' } },
+        required: ['city'],
+      },
+    },
+  ])
   .execute();
 
-if (response.toolCalls) {
-  for (const tc of response.toolCalls) {
-    console.log(`Call ${tc.function.name}: ${tc.function.arguments}`);
-  }
+for (const call of response.toolCalls ?? []) {
+  console.log(call.name, call.arguments);
 }
 ```
 
-### Client Builder with Fallbacks
+## Public API (package root)
 
-```typescript
-const client = await createClientBuilder()
-  .withFallbacks(['anthropic/claude-3-5-sonnet', 'deepseek/deepseek-chat'])
-  .withTimeout(30000)
-  .build('openai/gpt-4o');
-```
+Major exports:
 
-### Resilience (Retry, Circuit Breaker, Rate Limiter)
+- **Client:** `AiClient`, `AiClientBuilder`, `createClient`, `createClientBuilder`, `ChatBuilder`
+- **Types:** `Message`, `ContentBlock`, `StreamingEvent`, `Tool`, execution metadata types
+- **Errors:** `AiLibError`, `StandardErrorCode`, `isRetryable`, `isFallbackable`
+- **Protocol:** `ProtocolLoader`, manifest types, V2 parsers
+- **Pipeline (advanced):** `Pipeline`, `createPipeline` — not wired into default `AiClient`
+- **Policy:** `RetryPolicy`, `CircuitBreaker`, `RateLimiter`, `Backpressure`, `ModelManager`, `FallbackChain`, …
+- **Extras:** `EmbeddingClient`, `MemoryCache`, `McpToolBridge`, `Guardrails`, telemetry helpers
 
-```typescript
-import {
-  createClientBuilder,
-  RetryPolicy,
-  CircuitBreaker,
-  RateLimiter,
-  Backpressure,
-} from '@ailib-official/ai-lib-ts';
+Use `/core` when you need E-layer only (no `RetryPolicy` on transport). Use `/contact` for policy without `AiClient`.
 
-const client = await createClientBuilder()
-  .withRetry(RetryPolicy.fromConfig({ maxRetries: 5 }))
-  .withCircuitBreaker(new CircuitBreaker({ failureThreshold: 5 }))
-  .withRateLimiter(RateLimiter.fromRps(10))
-  .withBackpressure(new Backpressure({ maxConcurrent: 20 }))
-  .build('openai/gpt-4o');
-```
+### Honest capability boundaries
 
-### PreflightChecker (Request Gating)
+| Area | In the package | Not included |
+|------|----------------|--------------|
+| **MCP** | `McpToolBridge` format conversion | MCP server transport in `AiClient` |
+| **Computer Use** | V2 config types in protocol module | Runtime executor / screenshot environment |
+| **Hot reload** | — | Not implemented |
+| **Resilience on default client** | Manifest-derived **retry** on P-layer `HttpTransport` | Circuit breaker / rate limit / backpressure unless you pass `resilience` into transport options |
+| **`Pipeline`** | Public low-level API | Default `AiClient` chat path |
+| **Embeddings** | `EmbeddingClient` (OpenAI-style HTTP) | Not manifest-pipeline driven |
 
-```typescript
-import { PreflightChecker, CircuitBreaker, RateLimiter, Backpressure } from '@ailib-official/ai-lib-ts';
+### Resilience (what is auto-enabled)
 
-const checker = new PreflightChecker({
-  circuitBreaker: new CircuitBreaker(),
-  rateLimiter: RateLimiter.fromRps(10),
-  backpressure: new Backpressure({ maxConcurrent: 5 }),
-});
+Default `AiClient` uses P-layer `HttpTransport`, which **always** applies manifest/default **retry** on non-streaming `execute()`.
 
-const result = await checker.check();
-if (result.passed) {
-  try {
-    const response = await client.chat([Message.user('Hi')]).execute();
-    checker.onSuccess();
-    console.log(response.content);
-  } catch (e) {
-    checker.onFailure();
-    throw e;
-  } finally {
-    result.release();
-  }
-}
-```
+Circuit breaker, rate limiter, and backpressure require explicit `TransportOptions.resilience` when constructing transport — `AiClientBuilder` does **not** expose `.withCircuitBreaker()` / `.withRateLimiter()` helpers (those README snippets were invalid).
 
-### Batch Processing
+For manual gating, use `PreflightChecker` from the policy layer beside the client.
 
-```typescript
-import { BatchExecutor, batchExecute } from '@ailib-official/ai-lib-ts';
+## Protocol manifests
 
-const op = async (question: string) => {
-  const client = await AiClient.new('openai/gpt-4o');
-  const r = await client.chat([Message.user(question)]).execute();
-  return r.content;
-};
+Resolution via `ProtocolLoader` / `AiClient.new(model, { protocolPath })`:
 
-const result = await batchExecute(
-  ['What is AI?', 'What is Python?', 'What is async?'],
-  op,
-  { maxConcurrent: 5 }
-);
+1. Explicit protocol path
+2. `AI_PROTOCOL_DIR` / `AI_PROTOCOL_PATH`
+3. Dev paths + GitHub raw fallback (`ailib-official/ai-protocol`)
 
-console.log(`Successful: ${result.successfulCount}`);
-console.log(`Failed: ${result.failedCount}`);
-```
+## Standard error codes (V2)
 
-### Token Estimation and Cost
+| Code | Name | Retryable | Fallbackable |
+|------|------|-----------|--------------|
+| E1001 | `invalid_request` | No | No |
+| E1002 | `authentication` | No | Yes |
+| E1003 | `permission_denied` | No | No |
+| E1004 | `not_found` | No | No |
+| E1005 | `request_too_large` | No | No |
+| E2001 | `rate_limited` | Yes | Yes |
+| E2002 | `quota_exhausted` | No | Yes |
+| E3001 | `server_error` | Yes | Yes |
+| E3002 | `overloaded` | Yes | Yes |
+| E3003 | `timeout` | Yes | Yes |
+| E4001 | `conflict` | Yes | No |
+| E4002 | `cancelled` | No | No |
+| E9999 | `unknown` | No | No |
 
-```typescript
-import { estimateTokens, estimateCost } from '@ailib-official/ai-lib-ts';
-
-const tokens = estimateTokens('Hello, how are you?');
-console.log(`Tokens: ${tokens}`);
-
-const cost = estimateCost({
-  inputTokens: 1000,
-  outputTokens: 500,
-  model: 'gpt-4o',
-});
-console.log(`Cost: $${cost.totalCost}`);
-```
-
-### Embeddings
-
-```typescript
-import { EmbeddingClient } from '@ailib-official/ai-lib-ts';
-
-const client = await EmbeddingClient.new('openai/text-embedding-3-small');
-const response = await client.embed('Hello, world!');
-console.log(`Dimensions: ${response.embeddings[0].vector.length}`);
-```
-
-### Stream Cancellation
-
-```typescript
-const { stream, cancelHandle } = client
-  .chat([Message.user('Write a long story...')])
-  .stream()
-  .executeStreamWithCancel();
-
-// In another task: cancelHandle.cancel()
-for await (const event of stream) {
-  if (event.event_type === 'PartialContentDelta') {
-    process.stdout.write(event.content);
-  }
-}
-```
-
-### Pipeline.fromManifest
-
-```typescript
-import { Pipeline, ProtocolLoader } from '@ailib-official/ai-lib-ts';
-
-const loader = new ProtocolLoader();
-const manifest = await loader.load('openai/gpt-4o');
-const pipeline = Pipeline.fromManifest(manifest);
-const events = pipeline.process(chunk);
-```
-
-## Supported Providers
-
-| Provider   | Models        | Streaming | Tools | Vision |
-|------------|---------------|-----------|-------|--------|
-| OpenAI     | GPT-4o, GPT-4 | ✅        | ✅    | ✅     |
-| Anthropic  | Claude 3.5    | ✅        | ✅    | ✅     |
-| DeepSeek   | DeepSeek Chat | ✅        | ✅    | ❌     |
-
-## API Reference
-
-### Core Classes
-
-- **`AiClient`**: Main entry point for AI model interaction
-- **`Message`**: Chat message with role and content
-- **`ContentBlock`**: Multimodal content blocks
-- **`Tool`**: Tool/function definition
-- **`StreamingEvent`**: Events from streaming responses
-
-### Resilience Classes
-
-- **`RetryPolicy`**: Exponential backoff with jitter
-- **`CircuitBreaker`**: Circuit breaker pattern
-- **`RateLimiter`**: Token bucket rate limiting
-- **`Backpressure`**: Concurrency limiting
-- **`PreflightChecker`**: Unified request gating
-
-### Routing Classes
-
-- **`ModelManager`**: Centralized model management
-- **`ModelArray`**: Load balancing across endpoints
-- **`CostBasedSelector`**, **`QualityBasedSelector`**, **`RoundRobinSelector`**
-
-### Batch Classes
-
-- **`BatchExecutor`**: Parallel execution with concurrency control
-- **`BatchCollector`**: Request grouping for batch processing
-
-### Extras
-
-- **`EmbeddingClient`**: Embedding generation
-- **`MemoryCache`**: In-memory cache with TTL
-- **`SttClient`**, **`TtsClient`**, **`RerankerClient`**: Multimodal extras
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        AiClient                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ ChatBuilder │  │  Resilience │  │    Protocol         │  │
-│  │             │  │  (optional) │  │    Loader           │  │
-│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
-└─────────┼────────────────┼───────────────────┼──────────────┘
-          │                │                   │
-          ▼                ▼                   ▼
-┌─────────────────┐ ┌──────────────┐ ┌─────────────────────┐
-│   HttpTransport │ │   Pipeline   │ │  ProtocolManifest   │
-│   (fetch)       │ │   (decode→   │ │  (YAML/JSON)        │
-│                 │ │   select→    │ │                     │
-│                 │ │   map)       │ │                     │
-└─────────────────┘ └──────────────┘ └─────────────────────┘
-```
-
-## 🧪 Development
+## Testing
 
 ```bash
-git clone https://github.com/ailib-official/ai-lib-ts.git
-cd ai-lib-ts
-
-npm install
-npm run build
 npm test
 ```
 
-## Project Structure
+With mock server:
 
-```
-ai-lib-ts/
-├── src/
-│   ├── index.ts           # Package exports
-│   ├── types/             # Message, ContentBlock, StreamingEvent, Tool
-│   ├── protocol/          # Loader, Validator, V2
-│   ├── transport/         # HttpTransport
-│   ├── pipeline/          # Decoder, Selector, EventMapper
-│   ├── client/            # AiClient, ChatBuilder
-│   ├── resilience/        # Retry, CircuitBreaker, RateLimiter, Backpressure, PreflightChecker
-│   ├── routing/           # ModelManager, ModelArray, Selectors
-│   ├── negotiation/        # FallbackChain, firstSuccess, parallelAll
-│   ├── embeddings/        # EmbeddingClient
-│   ├── cache/             # MemoryCache
-│   ├── batch/             # BatchExecutor, BatchCollector
-│   ├── stt/               # SttClient
-│   ├── tts/               # TtsClient
-│   ├── rerank/            # RerankerClient
-│   ├── plugins/           # PluginRegistry, HookManager
-│   ├── mcp/               # McpToolBridge
-│   └── errors/            # Standard error codes
-├── tests/
-└── package.json
+```bash
+MOCK_HTTP_URL=http://localhost:4010 npm test
 ```
 
-## 📖 Related Projects
+Compliance:
 
-- [AI-Protocol](https://github.com/ailib-official/ai-protocol) - Protocol specification (v1.5 / V2)
-- [ai-lib-python](https://github.com/ailib-official/ai-lib-python) - Python runtime implementation
-- [ai-lib-rust](https://github.com/ailib-official/ai-lib-rust) - Rust runtime implementation
-- [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock) - Unified mock server
+```bash
+COMPLIANCE_DIR=../ai-protocol/tests/compliance npm test
+```
 
-## 📄 License
+## Related
 
-This project is licensed under either of:
+- [AI-Protocol](https://github.com/ailib-official/ai-protocol)
+- [ai-lib-rust](https://github.com/ailib-official/ai-lib-rust)
+- [ai-lib-python](https://github.com/ailib-official/ai-lib-python)
+- [ai-lib-go](https://github.com/ailib-official/ai-lib-go)
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT License ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+## License
 
-at your option.
-
----
-
-**ai-lib-ts** - Where protocol meets TypeScript. 📘✨
+Dual-licensed under [Apache-2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT).

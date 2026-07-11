@@ -1,13 +1,19 @@
 /**
  * Embedding client for generating embeddings.
+ * XR-EMB / ARCH-001: base URL + path + credentials from manifest or explicit overrides —
+ * no silent api.openai.com default.
  */
 
+import type { ProtocolManifest } from '../protocol/manifest.js';
+import { ProtocolLoader } from '../protocol/loader.js';
+import { resolveCredential } from '../transport/credentials.js';
 import type { Embedding, EmbeddingResponse } from './types.js';
 
 export interface EmbeddingClientConfig {
   model: string;
   apiKey: string;
-  baseUrl?: string;
+  baseUrl: string;
+  endpointPath?: string;
   timeout?: number;
 }
 
@@ -29,16 +35,33 @@ function fromOpenAIFormat(data: Record<string, unknown>): EmbeddingResponse {
   };
 }
 
+/** Resolve embeddings path from manifest endpoints; else `/embeddings`. */
+export function embeddingsPathFromManifest(manifest: ProtocolManifest): string {
+  const ep = manifest.endpoints?.embeddings;
+  if (ep?.path?.trim()) {
+    return ep.path.startsWith('/') ? ep.path : `/${ep.path}`;
+  }
+  return '/embeddings';
+}
+
+function manifestBaseUrl(manifest: ProtocolManifest): string | undefined {
+  return manifest.endpoint?.base_url ?? manifest.base_url;
+}
+
 export class EmbeddingClient {
   private readonly model: string;
   private readonly apiKey: string;
   private readonly baseUrl: string;
+  private readonly endpointPath: string;
   private readonly timeout: number;
 
   constructor(config: EmbeddingClientConfig) {
     this.model = config.model;
     this.apiKey = config.apiKey;
-    this.baseUrl = (config.baseUrl ?? 'https://api.openai.com').replace(/\/$/, '');
+    this.baseUrl = config.baseUrl.replace(/\/$/, '');
+    this.endpointPath = config.endpointPath?.startsWith('/')
+      ? config.endpointPath
+      : `/${config.endpointPath ?? 'embeddings'}`;
     this.timeout = config.timeout ?? 60_000;
   }
 
@@ -85,7 +108,7 @@ export class EmbeddingClient {
     input: string[],
     dimensions?: number
   ): Promise<EmbeddingResponse> {
-    const endpoint = `${this.baseUrl}/v1/embeddings`;
+    const endpoint = `${this.baseUrl}${this.endpointPath}`;
     const body: Record<string, unknown> = {
       model: this.model,
       input: input.length === 1 ? input[0] : input,
@@ -119,7 +142,9 @@ export class EmbeddingClientBuilder {
   private _model: string | null = null;
   private _apiKey: string | null = null;
   private _baseUrl: string | null = null;
+  private _endpointPath: string | null = null;
   private _timeout = 60_000;
+  private _protocolPath: string | null = null;
 
   model(m: string): this {
     this._model = m;
@@ -136,16 +161,72 @@ export class EmbeddingClientBuilder {
     return this;
   }
 
+  endpointPath(path: string | null): this {
+    this._endpointPath = path;
+    return this;
+  }
+
   timeout(ms: number): this {
     this._timeout = ms;
     return this;
   }
 
+  protocolPath(path: string): this {
+    this._protocolPath = path;
+    return this;
+  }
+
+  fromManifest(manifest: ProtocolManifest, modelId: string): this {
+    const resolved = resolveCredential(manifest, this._apiKey ?? undefined);
+    if (!resolved.value) {
+      const tried = [...resolved.requiredEnvVars, ...resolved.conventionalEnvVars];
+      throw new Error(
+        `API key required for embeddings (provider=${manifest.id}; tried ${tried.join(', ')})`
+      );
+    }
+    this._apiKey = resolved.value;
+    this._baseUrl = this._baseUrl ?? manifestBaseUrl(manifest) ?? null;
+    if (this._endpointPath == null) {
+      this._endpointPath = embeddingsPathFromManifest(manifest);
+    }
+    this._model = modelId;
+    return this;
+  }
+
+  async fromModel(model: string): Promise<EmbeddingClient> {
+    const parts = model.split('/');
+    if (parts.length < 2) {
+      throw new Error('Model must be provider/model-id form');
+    }
+    const modelId = parts.slice(1).join('/');
+    const loader = new ProtocolLoader(
+      this._protocolPath ? { protocolPath: this._protocolPath } : {}
+    );
+    const manifest = await loader.load(model);
+    return this.fromManifest(manifest, modelId).build();
+  }
+
   build(): EmbeddingClient {
     const model = this._model;
     if (!model) throw new Error('Model must be specified');
-    const apiKey = this._apiKey ?? (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY);
-    if (!apiKey) throw new Error('API key required (OPENAI_API_KEY)');
-    return new EmbeddingClient({ model, apiKey, baseUrl: this._baseUrl ?? undefined, timeout: this._timeout });
+    const apiKey = this._apiKey;
+    if (!apiKey) {
+      throw new Error(
+        'API key required: use fromManifest/fromModel or set apiKey explicitly'
+      );
+    }
+    const baseUrl = this._baseUrl;
+    if (!baseUrl) {
+      throw new Error(
+        'baseUrl required: use fromManifest/fromModel or set baseUrl explicitly (no vendor default)'
+      );
+    }
+    return new EmbeddingClient({
+      model,
+      apiKey,
+      baseUrl,
+      endpointPath: this._endpointPath ?? '/embeddings',
+      timeout: this._timeout,
+    });
   }
 }

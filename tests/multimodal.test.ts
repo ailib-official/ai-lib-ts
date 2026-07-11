@@ -77,11 +77,18 @@ describe('RerankerClientBuilder', () => {
     expect(() => new RerankerClientBuilder().build()).toThrow('Model must be specified');
   });
 
-  it('should build with explicit apiKey', () => {
+  it('should build with explicit apiKey and baseUrl', () => {
     const client = new RerankerClientBuilder()
       .model('rerank-v3')
       .apiKey('test-key')
+      .baseUrl('https://example.test')
       .build();
     expect(client.modelName).toBe('rerank-v3');
+  });
+
+  it('should require baseUrl (no Cohere default)', () => {
+    expect(() =>
+      new RerankerClientBuilder().model('rerank-v3').apiKey('test-key').build()
+    ).toThrow(/baseUrl required|no vendor default/i);
   });
 });

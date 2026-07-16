@@ -114,13 +114,13 @@ describe('Pipeline.fromManifest', () => {
 });
 
 describe('latest generative manifest consumption', () => {
-  it('loads latest ai-protocol v2 provider manifests from yaml', async () => {
+  it('loads latest ai-protocol dist/v2 provider manifests', async () => {
     const root = protocolRoot();
 
     const providers = [
       'openai',
       'anthropic',
-      'google',
+      'gemini',
       'deepseek',
       'qwen',
       'doubao',
@@ -130,8 +130,13 @@ describe('latest generative manifest consumption', () => {
       'jina',
     ];
     for (const provider of providers) {
-      const manifest = await loadManifestV2FromPath(`${root}/v2/providers/${provider}.yaml`);
+      const manifest = await loadManifestV2FromPath(
+        `${root}/dist/v2/providers/${provider}.json`
+      );
       expect(manifest.id).toBe(provider);
+      if (provider === 'gemini') {
+        expect(manifest.aliases ?? []).toContain('google');
+      }
       const cp = (manifest.capability_profile ?? {}) as Record<string, unknown>;
       expect(cp.phase).toBe('ios_v1');
       const endpoint = manifest.endpoint ?? manifest.endpoints;
@@ -141,7 +146,7 @@ describe('latest generative manifest consumption', () => {
       const input = (multimodal.input ?? {}) as Record<string, unknown>;
       const output = (multimodal.output ?? {}) as Record<string, unknown>;
 
-      if (provider === 'google' || provider === 'qwen') {
+      if (provider === 'gemini' || provider === 'qwen') {
         const videoIn = (input.video ?? {}) as Record<string, unknown>;
         expect(videoIn.supported).toBe(true);
       }
@@ -156,8 +161,8 @@ describe('ProtocolLoader v2 priority', () => {
   it('prefers dist/v2 provider manifest over dist/v1', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ai-lib-ts-loader-v2-'));
     try {
-      const v2Dir = join(root, 'v2', 'providers');
-      const v1Dir = join(root, 'v1', 'providers');
+      const v2Dir = join(root, 'dist', 'v2', 'providers');
+      const v1Dir = join(root, 'dist', 'v1', 'providers');
       await mkdir(v2Dir, { recursive: true });
       await mkdir(v1Dir, { recursive: true });
       await writeFile(
@@ -194,7 +199,7 @@ describe('ProtocolLoader v2 priority', () => {
   it('falls back to dist/v1 when dist/v2 is missing', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ai-lib-ts-loader-v1-'));
     try {
-      const v1Dir = join(root, 'v1', 'providers');
+      const v1Dir = join(root, 'dist', 'v1', 'providers');
       await mkdir(v1Dir, { recursive: true });
       await writeFile(
         join(v1Dir, 'openai.json'),
@@ -208,6 +213,38 @@ describe('ProtocolLoader v2 priority', () => {
       const loader = new ProtocolLoader({ protocolPath: root });
       const manifest = await loader.loadProvider('openai');
       expect(manifest.protocol_version).toBe('1.5');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves google alias via dist/provider-identity.json', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ai-lib-ts-loader-alias-'));
+    try {
+      const v2Dir = join(root, 'dist', 'v2', 'providers');
+      await mkdir(v2Dir, { recursive: true });
+      await mkdir(join(root, 'dist'), { recursive: true });
+      await writeFile(
+        join(v2Dir, 'gemini.json'),
+        JSON.stringify({
+          id: 'gemini',
+          aliases: ['google'],
+          protocol_version: '2.0',
+          endpoint: { base_url: 'https://generativelanguage.googleapis.com' },
+        }),
+        'utf-8'
+      );
+      await writeFile(
+        join(root, 'dist', 'provider-identity.json'),
+        JSON.stringify({
+          families: [{ canonical_id: 'gemini', aliases: ['google'] }],
+        }),
+        'utf-8'
+      );
+      const loader = new ProtocolLoader({ protocolPath: root });
+      const manifest = await loader.loadProvider('google');
+      expect(manifest.id).toBe('gemini');
+      expect(manifest.aliases ?? []).toContain('google');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

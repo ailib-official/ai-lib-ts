@@ -156,6 +156,8 @@ export interface StructuredCapabilities {
 export interface ProviderManifest {
   $schema?: string;
   id: string;
+  /** Alternate lookup keys (PT-ARCH-005); not used as file stems. */
+  aliases?: string[];
   name?: string;
   protocol_version: string;
   description?: string;

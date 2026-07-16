@@ -7,9 +7,15 @@ import type { ProviderManifest, ModelsManifest, ModelEntry, ProtocolManifest } f
 import { ProtocolError } from '../errors/index.js';
 
 /**
- * Default protocol paths
+ * Default protocol roots / package surfaces.
+ * Prefer repository roots so ``dist/`` can be resolved; keep legacy dist/v2 entries.
  */
 const DEFAULT_PROTOCOL_PATHS = [
+  '../ai-protocol',
+  '../../ai-protocol',
+  'node_modules/ai-protocol',
+  'node_modules/@ailib-official/ai-protocol',
+  // Legacy: already pointing at published dist trees
   'node_modules/ai-protocol/dist/v2',
   'node_modules/@ailib-official/ai-protocol/dist/v2',
   '../ai-protocol/dist/v2',
@@ -17,7 +23,6 @@ const DEFAULT_PROTOCOL_PATHS = [
   'node_modules/ai-protocol/dist/v1',
   'node_modules/@ailib-official/ai-protocol/dist/v1',
   '../ai-protocol/dist/v1',
-  '../ai-protocol',
   './protocols',
 ];
 
@@ -93,41 +98,180 @@ export class ProtocolLoader {
   }
 
   /**
-   * Load a provider manifest
+   * Load a provider manifest.
+   *
+   * Resolution (PT-ARCH-005 / ALT-ID-001):
+   * 1. Exact match on authoritative roots via published ``dist/``
+   * 2. If missing: alias → canonical via ``dist/provider-identity.json``
+   * 3. Retry exact on authoritative roots
+   * 4. Elegant degrade: packaged node_modules / relative defaults, then GitHub dist
+   * 5. Else fail closed
    */
   async loadProvider(providerId: string): Promise<ProviderManifest> {
-    // Try local paths first
-    for (const basePath of this.getProtocolPaths()) {
-      const candidates = [
-        `${basePath}/providers/${providerId}.json`,
-        `${basePath}/v2/providers/${providerId}.json`,
-        `${basePath}/providers/${providerId}.yaml`,
-        `${basePath}/v2/providers/${providerId}.yaml`,
-        `${basePath}/v1/providers/${providerId}.json`,
-        `${basePath}/v1/providers/${providerId}.yaml`,
-      ];
-      for (const path of candidates) {
+    const { authoritative, degrade } = this.getProtocolRootTiers();
+
+    const exactPrimary = await this.loadProviderExactFromRoots(providerId, authoritative);
+    if (exactPrimary) {
+      return exactPrimary;
+    }
+
+    const canonical = await this.resolveCanonicalProviderId(providerId, [
+      ...authoritative,
+      ...degrade,
+    ]);
+    if (canonical && canonical !== providerId) {
+      const resolved = await this.loadProviderExactFromRoots(canonical, authoritative);
+      if (resolved) {
+        return resolved;
+      }
+      const resolvedDegrade = await this.loadProviderExactFromRoots(canonical, degrade);
+      if (resolvedDegrade) {
+        return resolvedDegrade;
+      }
+    }
+
+    const exactDegrade = await this.loadProviderExactFromRoots(providerId, degrade);
+    if (exactDegrade) {
+      return exactDegrade;
+    }
+
+    const remote = await this.loadProviderFromGithubDist(providerId);
+    if (remote) {
+      return remote;
+    }
+    if (canonical && canonical !== providerId) {
+      const remoteCanonical = await this.loadProviderFromGithubDist(canonical);
+      if (remoteCanonical) {
+        return remoteCanonical;
+      }
+    }
+
+    throw new ProtocolError(
+      `Failed to load provider manifest: ${providerId} (checked dist/ then source; alias map if present)`
+    );
+  }
+
+  private providerPathCandidates(basePath: string, providerId: string): string[] {
+    return [
+      // Primary: published package surface
+      `${basePath}/dist/v2/providers/${providerId}.json`,
+      `${basePath}/dist/v1/providers/${providerId}.json`,
+      // When basePath already is dist/v2 or dist/v1
+      `${basePath}/providers/${providerId}.json`,
+      // Graceful degrade: source / unbuilt checkout
+      `${basePath}/v2/providers/${providerId}.json`,
+      `${basePath}/v2/providers/${providerId}.yaml`,
+      `${basePath}/v1/providers/${providerId}.json`,
+      `${basePath}/v1/providers/${providerId}.yaml`,
+      `${basePath}/providers/${providerId}.yaml`,
+    ];
+  }
+
+  private async loadProviderExactFromRoots(
+    providerId: string,
+    roots: string[]
+  ): Promise<ProviderManifest | null> {
+    for (const basePath of roots) {
+      for (const path of this.providerPathCandidates(basePath, providerId)) {
         const manifest = await this.loadFromPath(path);
         if (manifest) {
           return this.normalizeProviderManifest(manifest);
         }
       }
     }
+    return null;
+  }
 
-    // Try GitHub as fallback
-    try {
-      let manifest = await this.loadFromUrl(
-        `${GITHUB_RAW_BASE}/dist/v2/providers/${providerId}.json`
-      ).catch(() => null);
-      if (!manifest) {
-        manifest = await this.loadFromUrl(
-          `${GITHUB_RAW_BASE}/dist/v1/providers/${providerId}.json`
-        );
+  private async loadProviderFromGithubDist(
+    providerId: string
+  ): Promise<ProviderManifest | null> {
+    for (const remote of [
+      `${GITHUB_RAW_BASE}/dist/v2/providers/${providerId}.json`,
+      `${GITHUB_RAW_BASE}/dist/v1/providers/${providerId}.json`,
+    ]) {
+      try {
+        const manifest = await this.loadFromUrl(remote);
+        return this.normalizeProviderManifest(manifest);
+      } catch {
+        // try next remote
       }
-      return this.normalizeProviderManifest(manifest);
-    } catch {
-      throw new ProtocolError(`Failed to load provider manifest: ${providerId}`);
     }
+    return null;
+  }
+
+  private identityMapCandidates(roots: string[]): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const root of roots) {
+      for (const candidate of [
+        `${root}/dist/provider-identity.json`,
+        `${root}/provider-identity.json`,
+        `${root}/v2/provider-identity.fixture.json`,
+        `${root}/../provider-identity.json`,
+        `${root}/../dist/provider-identity.json`,
+      ]) {
+        if (!seen.has(candidate)) {
+          seen.add(candidate);
+          out.push(candidate);
+        }
+      }
+    }
+    return out;
+  }
+
+  private canonicalFromFamily(
+    family: Record<string, unknown>,
+    key: string
+  ): string | undefined {
+    const canonical = family.canonical_id;
+    if (typeof canonical !== 'string') {
+      return undefined;
+    }
+    if (key === canonical) {
+      return canonical;
+    }
+    const aliases = family.aliases;
+    if (Array.isArray(aliases) && aliases.some((a) => a === key)) {
+      return canonical;
+    }
+    return undefined;
+  }
+
+  private canonicalFromIdentityValue(value: unknown, key: string): string | undefined {
+    if (!value || typeof value !== 'object') {
+      return undefined;
+    }
+    const obj = value as Record<string, unknown>;
+    const families = obj.families;
+    if (Array.isArray(families)) {
+      for (const family of families) {
+        if (family && typeof family === 'object') {
+          const canonical = this.canonicalFromFamily(family as Record<string, unknown>, key);
+          if (canonical) {
+            return canonical;
+          }
+        }
+      }
+      return undefined;
+    }
+    return this.canonicalFromFamily(obj, key);
+  }
+
+  private async resolveCanonicalProviderId(
+    key: string,
+    roots: string[]
+  ): Promise<string | undefined> {
+    for (const mapPath of this.identityMapCandidates(roots)) {
+      const raw = await this.loadFromPath(mapPath);
+      if (!raw) {
+        continue;
+      }
+      const canonical = this.canonicalFromIdentityValue(raw, key);
+      if (canonical) {
+        return canonical;
+      }
+    }
+    return undefined;
   }
 
   private normalizeProviderManifest(manifest: unknown): ProviderManifest {
@@ -186,18 +330,26 @@ export class ProtocolLoader {
   }
 
   /**
-   * Get protocol paths to search
+   * Get protocol paths to search (flat list for listProviders / models).
    */
   private getProtocolPaths(): string[] {
-    const paths = [...DEFAULT_PROTOCOL_PATHS];
+    const { authoritative, degrade } = this.getProtocolRootTiers();
+    return [...authoritative, ...degrade];
+  }
+
+  /**
+   * Authoritative roots (explicit path / AI_PROTOCOL_DIR) vs packaged degrade.
+   * Stale node_modules must not shadow tip alias resolution.
+   */
+  private getProtocolRootTiers(): { authoritative: string[]; degrade: string[] } {
+    if (this.options.protocolPath) {
+      return { authoritative: [this.options.protocolPath], degrade: [] };
+    }
     const envPath = process.env.AI_PROTOCOL_PATH ?? process.env.AI_PROTOCOL_DIR;
     if (envPath) {
-      paths.unshift(envPath);
+      return { authoritative: [envPath], degrade: [...DEFAULT_PROTOCOL_PATHS] };
     }
-    if (this.options.protocolPath) {
-      paths.unshift(this.options.protocolPath);
-    }
-    return paths;
+    return { authoritative: [], degrade: [...DEFAULT_PROTOCOL_PATHS] };
   }
 
   /**

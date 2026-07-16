@@ -65,6 +65,8 @@ export interface MultimodalConfig {
 
 export interface ManifestV2 {
   id: string;
+  /** Alternate lookup keys (PT-ARCH-005); not used as file stems. */
+  aliases?: string[];
   name?: string;
   protocol_version?: string;
   api_style?: ApiStyle;

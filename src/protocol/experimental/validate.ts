@@ -34,7 +34,8 @@ function loadSchemaObject(protocolRoot: string, id: ExperimentalSchemaId): objec
   const path = join(protocolRoot, 'schemas', 'v2', `${id}.json`);
   const raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
   // Ajv2020 does not need the $schema URI meta-fetch for offline validation.
-  const { $schema: _drop, ...rest } = raw;
+  const rest = { ...raw };
+  delete rest.$schema;
   return rest;
 }
 

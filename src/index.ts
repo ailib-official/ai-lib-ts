@@ -55,6 +55,13 @@ export {
   getAllCapabilities,
   hasCapability,
   normalizeUsage,
+  CAPABILITY_TAG_MAPPING_SCHEMA_VERSION,
+  CONTEXT_ENVELOPE_SCHEMA_VERSION,
+  isCriticalLayer,
+  loadCapabilityTagMappingFixture,
+  loadContextEnvelopeFixture,
+  parseCapabilityTagMapping,
+  parseContextEnvelope,
 } from './protocol/index.js';
 
 export type {
@@ -78,6 +85,15 @@ export type {
   FeatureFlags,
   StructuredCapabilities,
   ProtocolLoaderOptions,
+  AssembleStrategy,
+  CapabilityTag,
+  CapabilityTagMapping,
+  CapabilityTagMappingEntry,
+  ContextEnvelope,
+  ContextLayer,
+  MessageChunk,
+  ProviderCapabilityName,
+  TagWireRelation,
 } from './protocol/index.js';
 
 // Protocol V2

@@ -172,3 +172,25 @@ export type {
   TransportResponse,
   ResilienceConfig,
 } from './transport/index.js';
+
+/** Experimental Context Envelope / Tag mapping (ALT-EXP-001) — Facade evidence only. */
+export {
+  CAPABILITY_TAG_MAPPING_SCHEMA_VERSION,
+  CONTEXT_ENVELOPE_SCHEMA_VERSION,
+  isCriticalLayer,
+  loadCapabilityTagMappingFixture,
+  loadContextEnvelopeFixture,
+  parseCapabilityTagMapping,
+  parseContextEnvelope,
+} from './protocol/experimental/index.js';
+export type {
+  AssembleStrategy,
+  CapabilityTag,
+  CapabilityTagMapping,
+  CapabilityTagMappingEntry,
+  ContextEnvelope,
+  ContextLayer,
+  MessageChunk,
+  ProviderCapabilityName,
+  TagWireRelation,
+} from './protocol/experimental/index.js';

@@ -1,26 +1,39 @@
 # ai-lib-ts
 
-**AI-Protocol 官方 TypeScript 运行时** - 统一 AI 模型交互的规范 TypeScript/Node.js 实现。
+**[AI-Protocol](https://github.com/ailib-official/ai-protocol) 协议运行时** — TypeScript / Node.js 参考实现（v**1.0.1**）。
 
-[![npm version](https://img.shields.io/npm/v/@ailib-official/ai-lib-ts.svg)](https://www.npmjs.com/package/@ailib-official/ai-lib-ts)
-[![Node 18+](https://img.shields.io/badge/node-18+-green.svg)](https://nodejs.org/)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green.svg)](LICENSE)
+[English](README.md)
 
-## 🎯 设计理念
+`@ailib-official/ai-lib-ts` 提供三个入口：
 
-`ai-lib-ts` 是 [AI-Protocol](https://github.com/ailib-official/ai-protocol) 规范的**官方 TypeScript 运行时**。它体现了核心设计原则：
+| 导入 | 层 | 适用场景 |
+|------|----|----------|
+| `@ailib-official/ai-lib-ts` | E + P 门面 | 完整 SDK（默认） |
+| `@ailib-official/ai-lib-ts/core` | 仅执行层 | Edge / 精简打包 — 无弹性路由 |
+| `@ailib-official/ai-lib-ts/contact` | 仅策略层 | 重试、熔断、路由 — 无 `AiClient` |
 
-> **一切逻辑皆算子，一切配置皆协议** (All logic is operators, all configuration is protocol)
+已发布到 [npm](https://www.npmjs.com/package/@ailib-official/ai-lib-ts)：**`@ailib-official/ai-lib-ts@1.0.1`**。可选 peer：`@ailib-official/ai-protocol@^1.0.0`。
 
-与传统的适配器库硬编码特定提供商逻辑不同，`ai-lib-ts` 是一个**协议驱动的运行时**，执行 AI-Protocol 规范。这意味着：
+> **说明：** Git `main` 可能包含上次 npm 发版之后的协议身份解析与 Experimental Envelope 改动。依赖请对齐目标 tag；见 [CHANGELOG](CHANGELOG.md) 的 `Unreleased`。
 
-- **零硬编码提供商逻辑**: 所有行为都由协议清单（YAML/JSON 配置）驱动
-- **基于算子的架构**: 通过可组合的算子（Decoder → Selector → EventMapper）进行处理
-- **统一接口**: 开发者与单一、一致的 API 交互，无论底层提供商是什么
+## 工作原理
 
-## 🚀 快速入门
+**默认聊天路径：** `AiClient` 加载 provider manifest → 按 manifest 字段构建请求 → 经 **P 层 `HttpTransport`**（始终启用 retry）发 HTTP → 用 manifest `response_paths` 与 OpenAI 风格回退解析 JSON / SSE。
 
-### 基础用法
+这**不是**底层 `Pipeline` 算子路径（该 API 仍用于合规 / 高级场景，但 `AiClient` **不会**对聊天调用 `Pipeline.process()`）。本运行时**没有** `ProviderDriver`。
+
+| 层 | 模块 | 职责 |
+|----|------|------|
+| 执行 (E) | `client`、`protocol`、`transport/http`、`pipeline`、`types`、`structured`、`mcp`、embeddings/STT/TTS/rerank | HTTP、解析、类型 |
+| 策略 (P) | `resilience`、`routing`、`cache`、`batch`、`telemetry`、`guardrails`、`transport`（包装） | 重试、限流、路由 — 默认传输上部分自动启用 |
+| 门面 | 包根 | 再导出两层 |
+
+## 快速开始
+
+```bash
+npm install @ailib-official/ai-lib-ts
+export OPENAI_API_KEY="your-key"
+```
 
 ```typescript
 import { AiClient, Message } from '@ailib-official/ai-lib-ts';
@@ -30,111 +43,36 @@ const client = await AiClient.new('openai/gpt-4o');
 const response = await client
   .chat([
     Message.system('你是一个乐于助人的助手。'),
-    Message.user('你好！2+2 等于多少？'),
+    Message.user('你好！'),
   ])
   .execute();
 
 console.log(response.content);
-// 输出: 2+2 等于 4。
 ```
 
-## ✨ 特性
-
-- **协议驱动**: 所有行为由 YAML/JSON 协议文件驱动
-- **统一接口**: 单一 API 支持所有 AI 提供商（OpenAI、Anthropic、DeepSeek 等）
-- **流式优先**: 原生 async 流式处理，使用 `for await`
-- **类型安全**: 完整的 TypeScript 类型
-- **生产就绪**: 内置重试、限流、熔断、背压和预检
-- **易于扩展**: 通过协议配置轻松添加新提供商
-- **多模态支持**: 支持文本、图像（base64/URL）、音频、视频
-- **Token 计数**: 成本估算和 token 估算
-- **批处理**: BatchExecutor 和 BatchCollector 并行执行
-- **模型路由**: ModelManager 与 Cost/Quality/RoundRobin 选择器
-- **向量嵌入**: EmbeddingClient 向量生成
-- **结构化输出**: JSON 模式与 schema 配置
-- **响应缓存**: MemoryCache 带 TTL 支持
-- **插件系统**: PluginRegistry 和 HookManager
-- **流式取消**: CancelHandle 可取消流式
-- **MCP 桥接**: McpToolBridge（MCP 工具 ↔ AI-Protocol 格式）
-
-## 🔄 V2 协议对齐
-
-`ai-lib-ts` 与 **AI-Protocol V2** 规范对齐。V0.4.0 包含 V2 manifest 解析、PreflightChecker、BatchExecutor/BatchCollector、Pipeline.fromManifest。
-
-### 标准错误码（V2）
-
-所有 provider 错误被分类为 13 个标准错误码，具有统一的重试/回退语义：
-
-| 错误码 | 名称             | 可重试 | 可回退 |
-|--------|------------------|--------|--------|
-| E1001  | invalid_request  | 否     | 否     |
-| E1002  | authentication   | 否     | 是     |
-| E1003  | permission_denied| 否     | 否     |
-| E1004  | not_found        | 否     | 否     |
-| E1005  | request_too_large| 否     | 否     |
-| E2001  | rate_limited     | 是     | 是     |
-| E2002  | quota_exhausted  | 否     | 是     |
-| E3001  | server_error     | 是     | 是     |
-| E3002  | overloaded       | 是     | 是     |
-| E3003  | timeout          | 是     | 是     |
-| E4001  | conflict         | 是     | 否     |
-| E4002  | cancelled        | 否     | 否     |
-| E9999  | unknown          | 否     | 否     |
-
-### 使用 ai-protocol-mock 进行测试
-
-在无需真实 API 调用的集成测试中，可使用 [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock)：
+### Mock 服务（集成测试）
 
 ```typescript
-import { createClientBuilder } from '@ailib-official/ai-lib-ts';
-
-process.env.MOCK_HTTP_URL = 'http://localhost:4010';
+import { Message, createClientBuilder } from '@ailib-official/ai-lib-ts';
 
 const client = await createClientBuilder()
   .withMockServer('http://localhost:4010')
   .build('openai/gpt-4o');
+
+const response = await client
+  .chat([Message.user('你好！')])
+  .execute();
 ```
 
-## 📦 安装
+需要运行中的 [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock)。基于环境变量的 mock URL 覆盖（`MOCK_HTTP_URL`）仅在 `AILIB_ALLOW_MOCK_URL=1` 或 `NODE_ENV=test` 时由传输层生效。显式 `withMockServer` / `baseUrlOverride` 始终优先。
 
-```bash
-npm install @ailib-official/ai-lib-ts
-# 或
-yarn add @ailib-official/ai-lib-ts
-# 或
-pnpm add @ailib-official/ai-lib-ts
-```
+示例来源：`tests/integration.test.ts`。
 
-## 🔧 配置
-
-库会自动在以下位置查找协议清单：
-
-1. `node_modules/ai-protocol/dist` 或 `node_modules/@ailib-official/ai-protocol/dist`
-2. `../ai-protocol/dist`、`./protocols`
-3. GitHub raw `ailib-official/ai-protocol` (main)
-
-### 提供商 API 密钥
-
-通过环境变量设置：`<PROVIDER_ID>_API_KEY`
-
-```bash
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-export DEEPSEEK_API_KEY="..."
-```
-
-## 🚀 使用示例
-
-### 流式响应
+### 流式
 
 ```typescript
-const client = await AiClient.new('anthropic/claude-3-5-sonnet');
-
 const stream = client
-  .chat([
-    Message.system('你是一个乐于助人的助手。'),
-    Message.user('讲一个简短的故事。'),
-  ])
+  .chat([Message.user('从 1 数到 5')])
   .stream()
   .executeStream();
 
@@ -148,121 +86,143 @@ for await (const event of stream) {
 ### 工具调用
 
 ```typescript
-import { Tool } from '@ailib-official/ai-lib-ts';
-
-const weatherTool = Tool.define(
-  'get_weather',
-  {
-    type: 'object',
-    properties: {
-      location: { type: 'string', description: '城市名' },
-      unit: { type: 'string', enum: ['celsius', 'fahrenheit'] },
-    },
-    required: ['location'],
-  },
-  '获取指定地点的当前天气'
-);
-
 const response = await client
   .chat([Message.user('东京天气怎么样？')])
-  .tools([weatherTool])
+  .tools([
+    {
+      name: 'get_weather',
+      description: '获取天气',
+      parameters: {
+        type: 'object',
+        properties: { city: { type: 'string' } },
+        required: ['city'],
+      },
+    },
+  ])
   .execute();
-```
 
-### 批量处理
-
-```typescript
-import { batchExecute } from '@ailib-official/ai-lib-ts';
-
-const op = async (question: string) => {
-  const client = await AiClient.new('openai/gpt-4o');
-  const r = await client.chat([Message.user(question)]).execute();
-  return r.content;
-};
-
-const result = await batchExecute(
-  ['什么是 AI？', '什么是 Python？', '什么是 async？'],
-  op,
-  { maxConcurrent: 5 }
-);
-
-console.log(`成功: ${result.successfulCount}`);
-console.log(`失败: ${result.failedCount}`);
-```
-
-### PreflightChecker（请求门控）
-
-```typescript
-import { PreflightChecker, CircuitBreaker, RateLimiter, Backpressure } from '@ailib-official/ai-lib-ts';
-
-const checker = new PreflightChecker({
-  circuitBreaker: new CircuitBreaker(),
-  rateLimiter: RateLimiter.fromRps(10),
-  backpressure: new Backpressure({ maxConcurrent: 5 }),
-});
-
-const result = await checker.check();
-if (result.passed) {
-  try {
-    const response = await client.chat([Message.user('你好')]).execute();
-    checker.onSuccess();
-    console.log(response.content);
-  } catch (e) {
-    checker.onFailure();
-    throw e;
-  } finally {
-    result.release();
-  }
+for (const call of response.toolCalls ?? []) {
+  console.log(call.name, call.arguments);
 }
 ```
 
-## 支持的提供商
+## 公共 API（包根）
 
-| 提供商   | 模型        | 流式 | 工具 | 视觉 |
-|----------|-------------|------|------|------|
-| OpenAI   | GPT-4o, GPT-4 | ✅  | ✅   | ✅   |
-| Anthropic| Claude 3.5  | ✅   | ✅   | ✅   |
-| DeepSeek | DeepSeek Chat | ✅ | ✅   | ❌   |
+主要导出：
 
-## API 参考
+- **客户端：** `AiClient`、`AiClientBuilder`、`createClient`、`createClientBuilder`、`ChatBuilder`
+- **类型：** `Message`、`ContentBlock`、`StreamingEvent`、`Tool`、执行元数据类型
+- **错误：** `AiLibError`、`StandardErrorCode`、`isRetryable`、`isFallbackable`
+- **协议：** `ProtocolLoader`、manifest 类型、V2 解析器、内容块编码器
+- **Pipeline（高级）：** `Pipeline`、`createPipeline` — 未接入默认 `AiClient`
+- **策略：** `RetryPolicy`、`CircuitBreaker`、`RateLimiter`、`Backpressure`、`ModelManager`、`FallbackChain`、…
+- **服务客户端：** `EmbeddingClient`、`RerankerClient`、`SttClient`、`TtsClient`（独立 HTTP；非聊天 Pipeline）
+- **扩展：** `MemoryCache`、`McpToolBridge`、`Guardrails`、遥测助手
 
-### 核心类
+需要仅 E 层时用 `/core`（传输上无 `RetryPolicy`）。仅策略、不要 `AiClient` 时用 `/contact`。
 
-- **`AiClient`**: AI 模型交互主入口
-- **`Message`**: 聊天消息
-- **`ContentBlock`**: 多模态内容块
-- **`Tool`**: 工具/函数定义
-- **`StreamingEvent`**: 流式响应事件
+文本工具助手（`StandardTextToolParser`、`createToolCallingPolicy` 等）在 `types` 中，并由 **`@ailib-official/ai-lib-ts/core`** 再导出（不在包根 barrel）。
 
-### 弹性类
+### 能力边界（如实说明）
 
-- **`RetryPolicy`**: 指数退避重试
-- **`CircuitBreaker`**: 熔断器
-- **`RateLimiter`**: 令牌桶限流
-- **`Backpressure`**: 并发限制
-- **`PreflightChecker`**: 统一请求门控
+| 领域 | 包内已有 | 不包含 |
+|------|----------|--------|
+| **MCP** | `McpToolBridge` 格式转换 | `AiClient` 内的 MCP 服务端传输 |
+| **Computer Use** | 协议模块中的 V2 配置类型 | 运行时执行器 / 截图环境 |
+| **热重载** | — | 未实现（仅有 `ProtocolLoader.clearCache()`） |
+| **默认客户端弹性** | P 层 `HttpTransport` 上的 manifest **retry** | 除非传入 `resilience`，否则无熔断 / 限流 / 背压 |
+| **`Pipeline`** | 公开底层 API | 默认 `AiClient` 聊天路径 |
+| **Embeddings / rerank** | `fromManifest` / `fromModel` 的协议化构建 | 静默 OpenAI/Cohere 主机默认（已移除；ALT-EMB-001） |
+| **Experimental Envelope** | 解析 / 校验 / fixture 加载（ALT-EXP-001） | 分层拼装算法（以 rust `assemble_layered` 为准） |
 
-### 批处理类
+### Embeddings 与 rerank（ALT-EMB-001）
 
-- **`BatchExecutor`**: 并行执行
-- **`BatchCollector`**: 请求聚合
+无静默厂商 base URL。优先使用协议构建器：
 
-## 📖 相关项目
+```typescript
+import { EmbeddingClient } from '@ailib-official/ai-lib-ts';
 
-- [AI-Protocol](https://github.com/ailib-official/ai-protocol) - 协议规范（v1.5 / V2）
-- [ai-lib-python](https://github.com/ailib-official/ai-lib-python) - Python 运行时
-- [ai-lib-rust](https://github.com/ailib-official/ai-lib-rust) - Rust 运行时
-- [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock) - 统一 mock 服务
+const client = await EmbeddingClient.builder().fromModel('openai/text-embedding-3-small');
+const result = await client.embed('hello');
+```
 
-## 📄 许可证
+`fromManifest` / `fromModel` 从 manifest 解析凭证、`base_url` 与端点路径（路径仅回退 `/embeddings` 或 `/rerank`）。仍可显式覆盖 `baseUrl` / `apiKey`。
 
-本项目采用以下任一许可证：
+### 弹性（默认启用项）
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) 或 http://www.apache.org/licenses/LICENSE-2.0)
-- MIT License ([LICENSE-MIT](LICENSE-MIT) 或 http://opensource.org/licenses/MIT)
+默认 `AiClient` 使用 P 层 `HttpTransport`，非流式 `execute()` **始终**应用 manifest/默认 **retry**。
 
-任选其一。
+熔断、限流、背压需在构造传输时显式传入 `TransportOptions.resilience` — `AiClientBuilder` **没有** `.withCircuitBreaker()` / `.withRateLimiter()` 助手。
 
----
+手动门控可用策略层的 `PreflightChecker`，放在客户端旁侧使用。
 
-**ai-lib-ts** - 协议与 TypeScript 的完美结合。📘✨
+## 协议清单
+
+经 `ProtocolLoader` / `AiClient.new(model, { protocolPath })` 解析：
+
+1. 显式 `protocolPath`（仅权威根）
+2. `AI_PROTOCOL_DIR` / `AI_PROTOCOL_PATH`（权威）+ 打包降级路径
+3. 打包 / 相对默认（`node_modules/@ailib-official/ai-protocol`、`../ai-protocol`、…）
+4. GitHub raw 回退（`ailib-official/ai-protocol` 的 `main` `dist/`）
+
+每个根：优先已发布的 `dist/v2|v1/providers/<id>.json`，再降级到源 YAML/JSON。
+
+**身份 / 别名（`main` 上 Unreleased，ALT-ID-001）：** `loadProvider` 通过 `dist/provider-identity.json`（多家族映射）解析市场别名，例如 `google` → `gemini`、`kimi` → `moonshot`。顺序：权威根精确匹配 → 别名 → 重试 → 降级 → GitHub dist；否则失败关闭。
+
+**Experimental Envelope（`main` 上 Unreleased，ALT-EXP-001）：** `parseContextEnvelope` / `parseCapabilityTagMapping`（及 fixture 加载器、schema 版本常量）。状态仍为 `experimental` — 不是产品路由默认。TS 不重实现分层拼装。
+
+## API 密钥
+
+1. 显式传输 / builder 凭证覆盖
+2. Manifest 声明的环境变量（`endpoint.auth` / 顶层 `auth`：`token_env` / `key_env` / …）
+3. 约定式 `<PROVIDER_ID>_API_KEY` 环境变量
+
+## 标准错误码（V2）
+
+| 错误码 | 名称 | 可重试 | 可回退 |
+|--------|------|--------|--------|
+| E1001 | `invalid_request` | 否 | 否 |
+| E1002 | `authentication` | 否 | 是 |
+| E1003 | `permission_denied` | 否 | 否 |
+| E1004 | `not_found` | 否 | 否 |
+| E1005 | `request_too_large` | 否 | 否 |
+| E2001 | `rate_limited` | 是 | 是 |
+| E2002 | `quota_exhausted` | 否 | 是 |
+| E3001 | `server_error` | 是 | 是 |
+| E3002 | `overloaded` | 是 | 是 |
+| E3003 | `timeout` | 是 | 是 |
+| E4001 | `conflict` | 是 | 否 |
+| E4002 | `cancelled` | 否 | 否 |
+| E9999 | `unknown` | 否 | 否 |
+
+## 测试
+
+```bash
+npm test
+npm run test:core
+npm run test:compliance:full
+```
+
+配合 mock 服务：
+
+```bash
+AILIB_ALLOW_MOCK_URL=1 MOCK_HTTP_URL=http://localhost:4010 npm test
+```
+
+合规（本地协议检出）：
+
+```bash
+AI_PROTOCOL_DIR=../ai-protocol COMPLIANCE_DIR=../ai-protocol/tests/compliance npm test
+```
+
+## 相关项目
+
+- [AI-Protocol](https://github.com/ailib-official/ai-protocol) — 规范与清单
+- [ai-lib-rust](https://github.com/ailib-official/ai-lib-rust) — Rust 运行时
+- [ai-lib-python](https://github.com/ailib-official/ai-lib-python) — Python 运行时
+- [ai-lib-go](https://github.com/ailib-official/ai-lib-go) — Go 运行时
+- [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock) — 统一 mock 服务
+
+## 许可证
+
+双许可：[Apache-2.0](LICENSE-APACHE) 或 [MIT](LICENSE-MIT)。

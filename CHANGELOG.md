@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- **Provider identity aliases (ALT-ID-001):** `ProtocolLoader.loadProvider` resolves marketplace aliases via multi-family `dist/provider-identity.json` (exact on authoritative roots → alias → retry → degrade → GitHub dist); fail closed. Golden coverage MULTI-ALIAS-XLANG-001 (#18, #20).
+- **Experimental Envelope / Tag mapping (ALT-EXP-001):** consume-only `parseContextEnvelope` / `parseCapabilityTagMapping` (+ fixture loaders, schema version constants). Status remains experimental; not a product routing default. Does not re-implement rust `assemble_layered` (#19).
+
+### Docs
+
+- README / README_CN aligned to public API truth at **1.0.1** (and Unreleased behaviors on `main`).
+
 ## [1.0.1] - 2026-07-11
 
 ### Fixed
@@ -34,24 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **P1:** `MOCK_HTTP_URL` honored only when `AILIB_ALLOW_MOCK_URL=1` or `NODE_ENV=test`; removed hardcoded LAN mock IP default.
 - **P1:** CI workflows pin `ailib-official/ai-protocol` checkout to `main` (post PT-073h #18; includes `--ts-root` EP check).
 - V1 manifest `feature_flags` parsing via `getFeatureFlags()`.
-
-## Unreleased
-
-### Added
-
-- **npm protocol alignment:** optional peer dependency `@ailib-official/ai-protocol@^0.8.4` (with `peerDependenciesMeta.optional`) plus matching `devDependency` so installs resolve the published scoped protocol package alongside checkout-based `AI_PROTOCOL_DIR` workflows.
-- **PT-074 credential chain parity:** manifest-declared credential resolution now supports explicit overrides, `endpoint.auth` / top-level `auth` env names, conventional `<PROVIDER_ID>_API_KEY` fallback, and compliance coverage for credential resolution / auth attachment.
-- Wave-5 E/P subpath exports (see 0.5.3).
-- E/P boundary types: `ExecutionResult`, `ExecutionMetadata`, `ExecutionUsage` (`src/types/execution-result.ts`).
-- **`npm run test:core`:** Vitest config `vitest.core.config.ts` runs execution-layer compliance fixtures only (matrix + advanced capabilities + protocol_loading + generative).
-- **GitHub Actions:** `.github/workflows/pt073-ts-core.yml` (typecheck + `test:core` with `AI_PROTOCOL_DIR`).
-
-### Changed
-
-- **Client / pipeline:** Non-streaming chat JSON is parsed with manifest `response_paths` (OpenAI-style fallbacks and reasoning paths); when `streaming.decoder.strategy` is `openai_chat`, the path-based event mapper is used even if `streaming.event_map` is present (cross-runtime parity with ai-lib-rust / ai-lib-python).
-- **`src/core.ts`:** re-exports protocol V2 loader (`loadManifestV2FromPath`, etc.) so E-only imports satisfy compliance tests.
-- **`tests/protocol-loading.compliance.test.ts`:** imports loader from `src/core.js` for core-only runs.
-- **PT-065 Generative Capabilities:** `ThinkingDelta` emission, `ToolCallAccumulator`, `FeatureFlags` helpers, and `generative.compliance.test.ts` (gen-001~gen-007).
 
 ## [0.5.1] - 2026-03-08
 

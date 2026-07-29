@@ -1,6 +1,8 @@
 # ai-lib-ts
 
-**Protocol runtime for [AI-Protocol](https://github.com/ailib-official/ai-protocol)** — TypeScript / Node.js reference implementation (v**1.0.0**).
+**Protocol runtime for [AI-Protocol](https://github.com/ailib-official/ai-protocol)** — TypeScript / Node.js reference implementation (v**1.0.1**).
+
+[中文文档](README_CN.md)
 
 `@ailib-official/ai-lib-ts` ships three entry points:
 
@@ -10,11 +12,15 @@
 | `@ailib-official/ai-lib-ts/core` | Execution only | Edge / minimal bundle — no resilience routing |
 | `@ailib-official/ai-lib-ts/contact` | Policy only | Retry, circuit breaker, routing — no `AiClient` |
 
+Published on [npm](https://www.npmjs.com/package/@ailib-official/ai-lib-ts) as **`@ailib-official/ai-lib-ts@1.0.1`**. Optional peer: `@ailib-official/ai-protocol@^1.0.0`.
+
+> **Note:** Git `main` may include protocol identity and Experimental Envelope work landed after the last npm cut. Match dependency versions to the tag you intend; see [CHANGELOG](CHANGELOG.md) `Unreleased`.
+
 ## How it works
 
-**Default chat path:** `AiClient` loads a manifest → builds requests from manifest fields → sends HTTP via **`HttpTransport`** → parses JSON / SSE with manifest `response_paths` and OpenAI-style fallbacks.
+**Default chat path:** `AiClient` loads a provider manifest → builds the request from manifest fields → sends HTTP via **P-layer `HttpTransport`** (retry always on) → parses JSON / SSE with manifest `response_paths` and OpenAI-style fallbacks.
 
-This is **not** the low-level `Pipeline` operator path (that API exists for compliance / advanced use, but `AiClient` does not call `Pipeline.process()` for chat). There is **no** `ProviderDriver` in this runtime.
+This is **not** the low-level `Pipeline` operator path (that API exists for compliance / advanced use, but `AiClient` does **not** call `Pipeline.process()` for chat). There is **no** `ProviderDriver` in this runtime.
 
 | Layer | Modules | Responsibility |
 |-------|---------|----------------|
@@ -58,7 +64,7 @@ const response = await client
   .execute();
 ```
 
-Requires a running [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock). Mock URL override is allowed when `AILIB_ALLOW_MOCK_URL=1` or `NODE_ENV=test`.
+Requires a running [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock). Env-based mock URL override (`MOCK_HTTP_URL`) is honored by transport only when `AILIB_ALLOW_MOCK_URL=1` or `NODE_ENV=test`. Explicit `withMockServer` / `baseUrlOverride` always wins.
 
 Pattern source: `tests/integration.test.ts`.
 
@@ -107,12 +113,15 @@ Major exports:
 - **Client:** `AiClient`, `AiClientBuilder`, `createClient`, `createClientBuilder`, `ChatBuilder`
 - **Types:** `Message`, `ContentBlock`, `StreamingEvent`, `Tool`, execution metadata types
 - **Errors:** `AiLibError`, `StandardErrorCode`, `isRetryable`, `isFallbackable`
-- **Protocol:** `ProtocolLoader`, manifest types, V2 parsers
+- **Protocol:** `ProtocolLoader`, manifest types, V2 parsers, content-block encoders
 - **Pipeline (advanced):** `Pipeline`, `createPipeline` — not wired into default `AiClient`
 - **Policy:** `RetryPolicy`, `CircuitBreaker`, `RateLimiter`, `Backpressure`, `ModelManager`, `FallbackChain`, …
-- **Extras:** `EmbeddingClient`, `MemoryCache`, `McpToolBridge`, `Guardrails`, telemetry helpers
+- **Service clients:** `EmbeddingClient`, `RerankerClient`, `SttClient`, `TtsClient` (standalone HTTP; not chat-pipeline driven)
+- **Extras:** `MemoryCache`, `McpToolBridge`, `Guardrails`, telemetry helpers
 
 Use `/core` when you need E-layer only (no `RetryPolicy` on transport). Use `/contact` for policy without `AiClient`.
+
+Text-tool helpers (`StandardTextToolParser`, `createToolCallingPolicy`, …) live under `types` and are re-exported from **`@ailib-official/ai-lib-ts/core`** (not the package-root barrel).
 
 ### Honest capability boundaries
 
@@ -120,16 +129,30 @@ Use `/core` when you need E-layer only (no `RetryPolicy` on transport). Use `/co
 |------|----------------|--------------|
 | **MCP** | `McpToolBridge` format conversion | MCP server transport in `AiClient` |
 | **Computer Use** | V2 config types in protocol module | Runtime executor / screenshot environment |
-| **Hot reload** | — | Not implemented |
+| **Hot reload** | — | Not implemented (`ProtocolLoader.clearCache()` only) |
 | **Resilience on default client** | Manifest-derived **retry** on P-layer `HttpTransport` | Circuit breaker / rate limit / backpressure unless you pass `resilience` into transport options |
 | **`Pipeline`** | Public low-level API | Default `AiClient` chat path |
-| **Embeddings** | `EmbeddingClient` (OpenAI-style HTTP) | Not manifest-pipeline driven |
+| **Embeddings / rerank** | `EmbeddingClient` / `RerankerClient` with `fromManifest` / `fromModel` | Silent OpenAI/Cohere host defaults (removed; ALT-EMB-001) |
+| **Experimental Envelope** | Parse / validate / fixture load (ALT-EXP-001) | Layered assemble algorithm (rust `assemble_layered` remains truth) |
+
+### Embeddings & rerank (ALT-EMB-001)
+
+No silent vendor base URL. Prefer protocol builders:
+
+```typescript
+import { EmbeddingClient } from '@ailib-official/ai-lib-ts';
+
+const client = await EmbeddingClient.builder().fromModel('openai/text-embedding-3-small');
+const result = await client.embed('hello');
+```
+
+`fromManifest` / `fromModel` resolve credential + `base_url` + endpoint path from the manifest (`/embeddings` or `/rerank` path-only fallback). Explicit `baseUrl` / `apiKey` overrides remain available.
 
 ### Resilience (what is auto-enabled)
 
 Default `AiClient` uses P-layer `HttpTransport`, which **always** applies manifest/default **retry** on non-streaming `execute()`.
 
-Circuit breaker, rate limiter, and backpressure require explicit `TransportOptions.resilience` when constructing transport — `AiClientBuilder` does **not** expose `.withCircuitBreaker()` / `.withRateLimiter()` helpers (those README snippets were invalid).
+Circuit breaker, rate limiter, and backpressure require explicit `TransportOptions.resilience` when constructing transport — `AiClientBuilder` does **not** expose `.withCircuitBreaker()` / `.withRateLimiter()` helpers.
 
 For manual gating, use `PreflightChecker` from the policy layer beside the client.
 
@@ -137,9 +160,22 @@ For manual gating, use `PreflightChecker` from the policy layer beside the clien
 
 Resolution via `ProtocolLoader` / `AiClient.new(model, { protocolPath })`:
 
-1. Explicit protocol path
-2. `AI_PROTOCOL_DIR` / `AI_PROTOCOL_PATH`
-3. Dev paths + GitHub raw fallback (`ailib-official/ai-protocol`)
+1. Explicit `protocolPath` (authoritative only)
+2. `AI_PROTOCOL_DIR` / `AI_PROTOCOL_PATH` (authoritative) + packaged degrade paths
+3. Packaged / relative defaults (`node_modules/@ailib-official/ai-protocol`, `../ai-protocol`, …)
+4. GitHub raw fallback (`ailib-official/ai-protocol` `main` `dist/`)
+
+Per root: prefer published `dist/v2|v1/providers/<id>.json`, then source YAML/JSON degrade.
+
+**Identity / aliases (Unreleased on `main`, ALT-ID-001):** `loadProvider` resolves marketplace aliases via `dist/provider-identity.json` (multi-family map), e.g. `google` → `gemini`, `kimi` → `moonshot`. Order: exact on authoritative roots → alias → retry → degrade → GitHub dist; else fail closed.
+
+**Experimental Envelope (Unreleased on `main`, ALT-EXP-001):** `parseContextEnvelope` / `parseCapabilityTagMapping` (+ fixture loaders, schema version constants). Status remains `experimental` — not a product routing default. TS does not re-implement layered assemble.
+
+## API keys
+
+1. Explicit transport / builder credential override
+2. Manifest-declared env vars (`endpoint.auth` / top-level `auth`: `token_env` / `key_env` / …)
+3. Conventional `<PROVIDER_ID>_API_KEY` env var
 
 ## Standard error codes (V2)
 
@@ -163,26 +199,29 @@ Resolution via `ProtocolLoader` / `AiClient.new(model, { protocolPath })`:
 
 ```bash
 npm test
+npm run test:core
+npm run test:compliance:full
 ```
 
 With mock server:
 
 ```bash
-MOCK_HTTP_URL=http://localhost:4010 npm test
+AILIB_ALLOW_MOCK_URL=1 MOCK_HTTP_URL=http://localhost:4010 npm test
 ```
 
-Compliance:
+Compliance (local protocol checkout):
 
 ```bash
-COMPLIANCE_DIR=../ai-protocol/tests/compliance npm test
+AI_PROTOCOL_DIR=../ai-protocol COMPLIANCE_DIR=../ai-protocol/tests/compliance npm test
 ```
 
 ## Related
 
-- [AI-Protocol](https://github.com/ailib-official/ai-protocol)
-- [ai-lib-rust](https://github.com/ailib-official/ai-lib-rust)
-- [ai-lib-python](https://github.com/ailib-official/ai-lib-python)
-- [ai-lib-go](https://github.com/ailib-official/ai-lib-go)
+- [AI-Protocol](https://github.com/ailib-official/ai-protocol) — specification & manifests
+- [ai-lib-rust](https://github.com/ailib-official/ai-lib-rust) — Rust runtime
+- [ai-lib-python](https://github.com/ailib-official/ai-lib-python) — Python runtime
+- [ai-lib-go](https://github.com/ailib-official/ai-lib-go) — Go runtime
+- [ai-protocol-mock](https://github.com/ailib-official/ai-protocol-mock) — unified mock service
 
 ## License
 

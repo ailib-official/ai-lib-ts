@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.1.0] - 2026-07-31
+
+### Changed
+
+- Package version **1.1.0**; dependency / CI **PROTO-PIN** to `@ailib-official/ai-protocol` **1.1.0** (`v1.1.0` / `2743912`).
+
 ### Added
 
 - **Provider identity aliases (ALT-ID-001):** `ProtocolLoader.loadProvider` resolves marketplace aliases via multi-family `dist/provider-identity.json` (exact on authoritative roots → alias → retry → degrade → GitHub dist); fail closed. Golden coverage MULTI-ALIAS-XLANG-001 (#18, #20).
@@ -14,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Docs
 
-- README / README_CN aligned to public API truth at **1.0.1** (and Unreleased behaviors on `main`).
+- README / README_CN aligned to public API truth at **1.1.0**.
 
 ## [1.0.1] - 2026-07-11
 

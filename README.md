@@ -1,6 +1,6 @@
 # ai-lib-ts
 
-**Protocol runtime for [AI-Protocol](https://github.com/ailib-official/ai-protocol)** — TypeScript / Node.js reference implementation (v**1.0.1**).
+**Protocol runtime for [AI-Protocol](https://github.com/ailib-official/ai-protocol)** — TypeScript / Node.js reference implementation (v**1.1.0**).
 
 [中文文档](README_CN.md)
 
@@ -12,7 +12,7 @@
 | `@ailib-official/ai-lib-ts/core` | Execution only | Edge / minimal bundle — no resilience routing |
 | `@ailib-official/ai-lib-ts/contact` | Policy only | Retry, circuit breaker, routing — no `AiClient` |
 
-Published on [npm](https://www.npmjs.com/package/@ailib-official/ai-lib-ts) as **`@ailib-official/ai-lib-ts@1.0.1`**. Optional peer: `@ailib-official/ai-protocol@^1.0.0`.
+Published on [npm](https://www.npmjs.com/package/@ailib-official/ai-lib-ts) as **`@ailib-official/ai-lib-ts@1.1.0`**. Optional peer: `@ailib-official/ai-protocol@^1.0.0`.
 
 > **Note:** Git `main` may include protocol identity and Experimental Envelope work landed after the last npm cut. Match dependency versions to the tag you intend; see [CHANGELOG](CHANGELOG.md) `Unreleased`.
 

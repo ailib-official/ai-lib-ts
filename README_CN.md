@@ -1,6 +1,6 @@
 # ai-lib-ts
 
-**[AI-Protocol](https://github.com/ailib-official/ai-protocol) 协议运行时** — TypeScript / Node.js 参考实现（v**1.0.1**）。
+**[AI-Protocol](https://github.com/ailib-official/ai-protocol) 协议运行时** — TypeScript / Node.js 参考实现（v**1.1.0**）。
 
 [English](README.md)
 
@@ -12,7 +12,7 @@
 | `@ailib-official/ai-lib-ts/core` | 仅执行层 | Edge / 精简打包 — 无弹性路由 |
 | `@ailib-official/ai-lib-ts/contact` | 仅策略层 | 重试、熔断、路由 — 无 `AiClient` |
 
-已发布到 [npm](https://www.npmjs.com/package/@ailib-official/ai-lib-ts)：**`@ailib-official/ai-lib-ts@1.0.1`**。可选 peer：`@ailib-official/ai-protocol@^1.0.0`。
+已发布到 [npm](https://www.npmjs.com/package/@ailib-official/ai-lib-ts)：**`@ailib-official/ai-lib-ts@1.1.0`**。可选 peer：`@ailib-official/ai-protocol@^1.0.0`。
 
 > **说明：** Git `main` 可能包含上次 npm 发版之后的协议身份解析与 Experimental Envelope 改动。依赖请对齐目标 tag；见 [CHANGELOG](CHANGELOG.md) 的 `Unreleased`。
 

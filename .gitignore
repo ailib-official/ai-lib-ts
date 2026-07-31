@@ -10,3 +10,7 @@ coverage
 .env
 .env.local
 .env.*.local
+
+# Local CodeGraph index (do not commit)
+.codegraph/
+

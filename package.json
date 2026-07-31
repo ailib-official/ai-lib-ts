@@ -1,6 +1,6 @@
 {
   "name": "@ailib-official/ai-lib-ts",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Official TypeScript Runtime for AI-Protocol - Unified AI model interaction for Node.js and the npm ecosystem",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -85,7 +85,7 @@
     "yaml": "^2.7.0"
   },
   "peerDependencies": {
-    "@ailib-official/ai-protocol": "^1.0.0"
+    "@ailib-official/ai-protocol": "^1.1.0"
   },
   "peerDependenciesMeta": {
     "@ailib-official/ai-protocol": {
@@ -93,7 +93,7 @@
     }
   },
   "devDependencies": {
-    "@ailib-official/ai-protocol": "^1.0.0",
+    "@ailib-official/ai-protocol": "^1.1.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.0",
     "@typescript-eslint/eslint-plugin": "^8.56.0",

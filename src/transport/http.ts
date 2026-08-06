@@ -214,10 +214,9 @@ export class HttpTransport {
         base_url: options.baseUrl,
         auth: { type: 'bearer' as const, token_env: 'AI_LIB_EXPLICIT_API_KEY' },
       },
-      capabilities: { streaming: false, tools: false, vision: false },
       status: 'stable',
       model_id: 'explicit',
-    } as ProtocolManifest;
+    } as unknown as ProtocolManifest;
     return new HttpTransport(manifest, {
       baseUrlOverride: options.baseUrl,
       credential: options.apiKey,

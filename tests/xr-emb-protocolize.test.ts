@@ -51,6 +51,16 @@ describe('XR-EMB embeddings', () => {
       .fromManifest(m, 'embed-1')
       .build();
     expect(client.modelName).toBe('embed-1');
+    expect(client.transport.resolvedBaseUrl).toBe('https://example.test/v1');
+  });
+
+  it('explicit build wires HttpTransport', () => {
+    const client = EmbeddingClient.builder()
+      .model('emb')
+      .apiKey('k')
+      .baseUrl('https://example.test')
+      .build();
+    expect(client.transport.resolvedBaseUrl).toBe('https://example.test');
   });
 
   it('path fallback is /embeddings only', () => {
@@ -81,6 +91,7 @@ describe('XR-EMB rerank', () => {
       .fromManifest(m, 'rerank-1')
       .build();
     expect(client.modelName).toBe('rerank-1');
+    expect(client.transport.resolvedBaseUrl).toBe('https://example.test/v1');
   });
 
   it('path fallback is /rerank only', () => {

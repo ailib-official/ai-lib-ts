@@ -2,11 +2,13 @@
  * Rerank client for document relevance scoring.
  * XR-EMB / ARCH-001: base URL + path + credentials from manifest or explicit overrides —
  * no silent api.cohere.com default.
+ * HTTP via shared HttpTransport — [GOV-007].
  */
 
 import type { ProtocolManifest } from '../protocol/manifest.js';
 import { ProtocolLoader } from '../protocol/loader.js';
 import { resolveCredential } from '../transport/credentials.js';
+import { HttpTransport } from '../transport/http.js';
 
 export interface RerankResult {
   index: number;
@@ -21,10 +23,8 @@ export interface RerankOptions {
 
 export interface RerankerClientConfig {
   model: string;
-  apiKey: string;
-  baseUrl: string;
+  transport: HttpTransport;
   endpointPath?: string;
-  timeout?: number;
 }
 
 /** Resolve rerank path from manifest endpoints; else `/rerank`. */
@@ -45,19 +45,15 @@ function manifestBaseUrl(manifest: ProtocolManifest): string | undefined {
  */
 export class RerankerClient {
   private readonly model: string;
-  private readonly apiKey: string;
-  private readonly baseUrl: string;
+  readonly transport: HttpTransport;
   private readonly endpointPath: string;
-  private readonly timeout: number;
 
   constructor(config: RerankerClientConfig) {
     this.model = config.model;
-    this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl.replace(/\/$/, '');
+    this.transport = config.transport;
     this.endpointPath = config.endpointPath?.startsWith('/')
       ? config.endpointPath
       : `/${config.endpointPath ?? 'rerank'}`;
-    this.timeout = config.timeout ?? 60_000;
   }
 
   static builder(): RerankerClientBuilder {
@@ -74,8 +70,6 @@ export class RerankerClient {
     options?: RerankOptions
   ): Promise<RerankResult[]> {
     const opts = options ?? {};
-    const endpoint = `${this.baseUrl}${this.endpointPath}`;
-
     const body: Record<string, unknown> = {
       model: this.model,
       query,
@@ -84,35 +78,14 @@ export class RerankerClient {
     if (opts.topN != null) body.top_n = opts.topN;
     if (opts.maxTokensPerDoc != null) body.max_tokens_per_doc = opts.maxTokensPerDoc;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Rerank request failed: ${response.status} ${errText}`);
-      }
-
-      const data = (await response.json()) as { results?: Array<Record<string, unknown>> };
-      const results = data.results ?? [];
-      return results.map((r) => ({
-        index: (r.index as number) ?? 0,
-        relevanceScore: Number(r.relevance_score ?? 0),
-        document: r.document as string | undefined,
-      }));
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    const response = await this.transport.post(this.endpointPath, body);
+    const data = (await response.json()) as { results?: Array<Record<string, unknown>> };
+    const results = data.results ?? [];
+    return results.map((r) => ({
+      index: (r.index as number) ?? 0,
+      relevanceScore: Number(r.relevance_score ?? 0),
+      document: r.document as string | undefined,
+    }));
   }
 }
 
@@ -123,6 +96,7 @@ export class RerankerClientBuilder {
   private _endpointPath: string | null = null;
   private _timeout = 60_000;
   private _protocolPath: string | null = null;
+  private _manifest: ProtocolManifest | null = null;
 
   model(m: string): this {
     this._model = m;
@@ -168,6 +142,7 @@ export class RerankerClientBuilder {
       this._endpointPath = rerankPathFromManifest(manifest);
     }
     this._model = modelId;
+    this._manifest = manifest;
     return this;
   }
 
@@ -199,12 +174,21 @@ export class RerankerClientBuilder {
         'baseUrl required: use fromManifest/fromModel or set baseUrl explicitly (no vendor default)'
       );
     }
+    const transport = this._manifest
+      ? new HttpTransport(this._manifest, {
+          baseUrlOverride: baseUrl,
+          credential: apiKey,
+          timeout: this._timeout,
+        })
+      : HttpTransport.withExplicitBearer({
+          baseUrl,
+          apiKey,
+          timeout: this._timeout,
+        });
     return new RerankerClient({
       model,
-      apiKey,
-      baseUrl,
+      transport,
       endpointPath: this._endpointPath ?? '/rerank',
-      timeout: this._timeout,
     });
   }
 }

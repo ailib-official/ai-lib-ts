@@ -1,7 +1,9 @@
 /**
  * TTS (Text-to-Speech) client.
- * Aligned with ai-lib-python tts/client.py
+ * HTTP via shared HttpTransport — [GOV-007].
  */
+
+import { HttpTransport } from '../transport/http.js';
 
 export type AudioFormat = 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm';
 
@@ -18,10 +20,8 @@ export interface TtsOptions {
 
 export interface TtsClientConfig {
   model: string;
-  apiKey: string;
-  baseUrl?: string;
+  transport: HttpTransport;
   endpointPath?: string;
-  timeout?: number;
 }
 
 function parseFormat(s: string | undefined): AudioFormat {
@@ -41,19 +41,15 @@ function parseFormat(s: string | undefined): AudioFormat {
  */
 export class TtsClient {
   private readonly model: string;
-  private readonly apiKey: string;
-  private readonly baseUrl: string;
+  readonly transport: HttpTransport;
   private readonly endpointPath: string;
-  private readonly timeout: number;
 
   constructor(config: TtsClientConfig) {
     this.model = config.model;
-    this.apiKey = config.apiKey;
-    this.baseUrl = (config.baseUrl ?? 'https://api.openai.com').replace(/\/$/, '');
+    this.transport = config.transport;
     this.endpointPath = config.endpointPath?.startsWith('/')
       ? config.endpointPath
       : `/${config.endpointPath ?? 'v1/audio/speech'}`;
-    this.timeout = config.timeout ?? 60_000;
   }
 
   static builder(): TtsClientBuilder {
@@ -69,8 +65,6 @@ export class TtsClient {
    */
   async synthesize(text: string, options?: TtsOptions): Promise<AudioOutput> {
     const opts = options ?? {};
-    const endpoint = `${this.baseUrl}${this.endpointPath}`;
-
     const body: Record<string, string | number> = {
       model: this.model,
       input: text,
@@ -79,31 +73,10 @@ export class TtsClient {
     if (opts.speed != null) body.speed = opts.speed;
     if (opts.responseFormat) body.response_format = opts.responseFormat;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`TTS request failed: ${response.status} ${errText}`);
-      }
-
-      const data = await response.arrayBuffer();
-      const format = parseFormat(opts.responseFormat);
-      return { data, format };
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    const response = await this.transport.post(this.endpointPath, body);
+    const data = await response.arrayBuffer();
+    const format = parseFormat(opts.responseFormat);
+    return { data, format };
   }
 }
 
@@ -144,12 +117,16 @@ export class TtsClientBuilder {
     if (!model) throw new Error('Model must be specified');
     const apiKey = this._apiKey ?? (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY);
     if (!apiKey) throw new Error('API key required (OPENAI_API_KEY)');
+    const baseUrl = this._baseUrl ?? 'https://api.openai.com';
+    const transport = HttpTransport.withExplicitBearer({
+      baseUrl,
+      apiKey,
+      timeout: this._timeout,
+    });
     return new TtsClient({
       model,
-      apiKey,
-      baseUrl: this._baseUrl ?? undefined,
+      transport,
       endpointPath: this._endpointPath ?? undefined,
-      timeout: this._timeout,
     });
   }
 }

@@ -1,7 +1,9 @@
 /**
  * STT (Speech-to-Text) client.
- * Aligned with ai-lib-python stt/client.py
+ * HTTP via shared HttpTransport — [GOV-007].
  */
+
+import { HttpTransport } from '../transport/http.js';
 
 export interface TranscriptionSegment {
   id: number;
@@ -26,10 +28,8 @@ export interface SttOptions {
 
 export interface SttClientConfig {
   model: string;
-  apiKey: string;
-  baseUrl?: string;
+  transport: HttpTransport;
   endpointPath?: string;
-  timeout?: number;
 }
 
 function fromOpenAIFormat(data: Record<string, unknown>): Transcription {
@@ -50,19 +50,15 @@ function fromOpenAIFormat(data: Record<string, unknown>): Transcription {
  */
 export class SttClient {
   private readonly model: string;
-  private readonly apiKey: string;
-  private readonly baseUrl: string;
+  readonly transport: HttpTransport;
   private readonly endpointPath: string;
-  private readonly timeout: number;
 
   constructor(config: SttClientConfig) {
     this.model = config.model;
-    this.apiKey = config.apiKey;
-    this.baseUrl = (config.baseUrl ?? 'https://api.openai.com').replace(/\/$/, '');
+    this.transport = config.transport;
     this.endpointPath = config.endpointPath?.startsWith('/')
       ? config.endpointPath
       : `/${config.endpointPath ?? 'v1/audio/transcriptions'}`;
-    this.timeout = config.timeout ?? 60_000;
   }
 
   static builder(): SttClientBuilder {
@@ -82,8 +78,6 @@ export class SttClient {
     options?: SttOptions
   ): Promise<Transcription> {
     const opts = options ?? {};
-    const endpoint = `${this.baseUrl}${this.endpointPath}`;
-
     const formData = new FormData();
     const blob = audio instanceof Blob ? audio : new Blob([audio], { type: 'audio/wav' });
     formData.append('file', blob, 'audio.wav');
@@ -94,27 +88,9 @@ export class SttClient {
     if (opts.temperature != null) formData.append('temperature', String(opts.temperature));
     if (opts.responseFormat) formData.append('response_format', opts.responseFormat);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-        body: formData,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`STT request failed: ${response.status} ${errText}`);
-      }
-
-      const data = (await response.json()) as Record<string, unknown>;
-      return fromOpenAIFormat(data);
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    const response = await this.transport.post(this.endpointPath, formData);
+    const data = (await response.json()) as Record<string, unknown>;
+    return fromOpenAIFormat(data);
   }
 }
 
@@ -155,12 +131,16 @@ export class SttClientBuilder {
     if (!model) throw new Error('Model must be specified');
     const apiKey = this._apiKey ?? (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY);
     if (!apiKey) throw new Error('API key required (OPENAI_API_KEY)');
+    const baseUrl = this._baseUrl ?? 'https://api.openai.com';
+    const transport = HttpTransport.withExplicitBearer({
+      baseUrl,
+      apiKey,
+      timeout: this._timeout,
+    });
     return new SttClient({
       model,
-      apiKey,
-      baseUrl: this._baseUrl ?? undefined,
+      transport,
       endpointPath: this._endpointPath ?? undefined,
-      timeout: this._timeout,
     });
   }
 }

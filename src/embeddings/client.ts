@@ -1,20 +1,19 @@
 /**
- * Embedding client for generating embeddings.
- * XR-EMB / ARCH-001: base URL + path + credentials from manifest or explicit overrides —
+ * Embedding client — XR-EMB / ARCH-001.
+ * HTTP via shared HttpTransport (same stack as chat) — [GOV-007].
  * no silent api.openai.com default.
  */
 
 import type { ProtocolManifest } from '../protocol/manifest.js';
 import { ProtocolLoader } from '../protocol/loader.js';
 import { resolveCredential } from '../transport/credentials.js';
+import { HttpTransport } from '../transport/http.js';
 import type { Embedding, EmbeddingResponse } from './types.js';
 
 export interface EmbeddingClientConfig {
   model: string;
-  apiKey: string;
-  baseUrl: string;
+  transport: HttpTransport;
   endpointPath?: string;
-  timeout?: number;
 }
 
 function fromOpenAIFormat(data: Record<string, unknown>): EmbeddingResponse {
@@ -50,19 +49,16 @@ function manifestBaseUrl(manifest: ProtocolManifest): string | undefined {
 
 export class EmbeddingClient {
   private readonly model: string;
-  private readonly apiKey: string;
-  private readonly baseUrl: string;
+  /** @internal shared HTTP stack */
+  readonly transport: HttpTransport;
   private readonly endpointPath: string;
-  private readonly timeout: number;
 
   constructor(config: EmbeddingClientConfig) {
     this.model = config.model;
-    this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl.replace(/\/$/, '');
+    this.transport = config.transport;
     this.endpointPath = config.endpointPath?.startsWith('/')
       ? config.endpointPath
       : `/${config.endpointPath ?? 'embeddings'}`;
-    this.timeout = config.timeout ?? 60_000;
   }
 
   static builder(): EmbeddingClientBuilder {
@@ -108,33 +104,14 @@ export class EmbeddingClient {
     input: string[],
     dimensions?: number
   ): Promise<EmbeddingResponse> {
-    const endpoint = `${this.baseUrl}${this.endpointPath}`;
     const body: Record<string, unknown> = {
       model: this.model,
       input: input.length === 1 ? input[0] : input,
     };
     if (dimensions != null) body.dimensions = dimensions;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Embedding request failed: ${response.status} ${errText}`);
-      }
-      const data = (await response.json()) as Record<string, unknown>;
-      return fromOpenAIFormat(data);
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    const response = await this.transport.post(this.endpointPath, body);
+    const data = (await response.json()) as Record<string, unknown>;
+    return fromOpenAIFormat(data);
   }
 }
 
@@ -145,6 +122,7 @@ export class EmbeddingClientBuilder {
   private _endpointPath: string | null = null;
   private _timeout = 60_000;
   private _protocolPath: string | null = null;
+  private _manifest: ProtocolManifest | null = null;
 
   model(m: string): this {
     this._model = m;
@@ -190,6 +168,7 @@ export class EmbeddingClientBuilder {
       this._endpointPath = embeddingsPathFromManifest(manifest);
     }
     this._model = modelId;
+    this._manifest = manifest;
     return this;
   }
 
@@ -221,12 +200,21 @@ export class EmbeddingClientBuilder {
         'baseUrl required: use fromManifest/fromModel or set baseUrl explicitly (no vendor default)'
       );
     }
+    const transport = this._manifest
+      ? new HttpTransport(this._manifest, {
+          baseUrlOverride: baseUrl,
+          credential: apiKey,
+          timeout: this._timeout,
+        })
+      : HttpTransport.withExplicitBearer({
+          baseUrl,
+          apiKey,
+          timeout: this._timeout,
+        });
     return new EmbeddingClient({
       model,
-      apiKey,
-      baseUrl,
+      transport,
       endpointPath: this._endpointPath ?? '/embeddings',
-      timeout: this._timeout,
     });
   }
 }

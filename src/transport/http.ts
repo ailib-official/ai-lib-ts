@@ -111,7 +111,12 @@ export class HttpTransport {
       return this.options.proxyUrl;
     }
 
-    return this.manifest.base_url ?? '';
+    return this.manifest.endpoint?.base_url ?? this.manifest.base_url ?? '';
+  }
+
+  /** Resolved base URL (no trailing slash). */
+  get resolvedBaseUrl(): string {
+    return this.baseUrl.replace(/\/$/, '');
   }
 
   protected getChatEndpoint(): string {
@@ -123,11 +128,100 @@ export class HttpTransport {
   }
 
   protected buildUrl(endpoint: string): string {
-    const url = new URL(`${this.baseUrl}${endpoint}`);
+    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = new URL(`${this.resolvedBaseUrl}${path}`);
     for (const [key, value] of Object.entries(this.authQueryParams)) {
       url.searchParams.set(key, value);
     }
     return url.toString();
+  }
+
+  /**
+   * Build headers for a request. When `forMultipart` is true, omit Content-Type
+   * so fetch sets the multipart boundary.
+   */
+  protected buildRequestHeaders(forMultipart = false): Record<string, string> {
+    if (!forMultipart) {
+      return { ...this.headers };
+    }
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(this.headers)) {
+      if (key.toLowerCase() !== 'content-type') {
+        headers[key] = value;
+      }
+    }
+    return headers;
+  }
+
+  /**
+   * Generic POST on the shared fetch stack (JSON or multipart FormData).
+   * Used by chat-adjacent APIs (embeddings/stt/tts/rerank) — [GOV-007].
+   */
+  async post(
+    path: string,
+    body: Record<string, unknown> | FormData,
+    options?: { signal?: AbortSignal }
+  ): Promise<Response> {
+    const url = this.buildUrl(path);
+    const forMultipart = typeof FormData !== 'undefined' && body instanceof FormData;
+    const controller = new AbortController();
+    const timeout = this.options.timeout ?? 60_000;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const externalSignal = options?.signal;
+    if (externalSignal) {
+      externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.buildRequestHeaders(forMultipart),
+        body: forMultipart ? body : JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        throw AiLibError.fromHttpStatus(
+          response.status,
+          errorBody || response.statusText
+        );
+      }
+
+      return response;
+    } catch (e) {
+      throw this.normalizeError(e);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  /**
+   * Build transport when only baseUrl + bearer secret are known.
+   * Same constructor as protocol-driven clients — not a second HTTP stack ([GOV-007]).
+   */
+  static withExplicitBearer(options: {
+    baseUrl: string;
+    apiKey: string;
+    timeout?: number;
+  }): HttpTransport {
+    const manifest = {
+      id: 'explicit',
+      protocol_version: '1.0',
+      base_url: options.baseUrl,
+      endpoint: {
+        base_url: options.baseUrl,
+        auth: { type: 'bearer' as const, token_env: 'AI_LIB_EXPLICIT_API_KEY' },
+      },
+      status: 'stable',
+      model_id: 'explicit',
+    } as unknown as ProtocolManifest;
+    return new HttpTransport(manifest, {
+      baseUrlOverride: options.baseUrl,
+      credential: options.apiKey,
+      timeout: options.timeout,
+    });
   }
 
   async execute(

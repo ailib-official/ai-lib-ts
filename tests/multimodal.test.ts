@@ -55,6 +55,7 @@ describe('SttClientBuilder', () => {
       .apiKey('test-key')
       .build();
     expect(client.modelName).toBe('whisper-1');
+    expect(client.transport.resolvedBaseUrl).toBe('https://api.openai.com');
   });
 });
 
@@ -69,6 +70,7 @@ describe('TtsClientBuilder', () => {
       .apiKey('test-key')
       .build();
     expect(client.modelName).toBe('tts-1');
+    expect(client.transport.resolvedBaseUrl).toBe('https://api.openai.com');
   });
 });
 
@@ -84,6 +86,7 @@ describe('RerankerClientBuilder', () => {
       .baseUrl('https://example.test')
       .build();
     expect(client.modelName).toBe('rerank-v3');
+    expect(client.transport.resolvedBaseUrl).toBe('https://example.test');
   });
 
   it('should require baseUrl (no Cohere default)', () => {

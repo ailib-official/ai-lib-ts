@@ -69,6 +69,11 @@ const DSML_PARAMETER_RE = new RegExp(
 const DSML_WRAPPER_RE = new RegExp(
   `<${DSML_TAG}tool_calls>\\s*([\\s\\S]*?)\\s*</${DSML_TAG}tool_calls>`,
 );
+// Hybrid DSML+JSON (ttc-010 / ttc-015): tool_call(s) or _call wrapping standard JSON body.
+const DSML_TOOL_CALL_RE = new RegExp(
+  `<${DSML_TAG}(?:tool_calls?|_call)(?:\\s+[^>]*)?>([\\s\\S]*?)</${DSML_TAG}(?:tool_calls?|_call)>`,
+  'g',
+);
 
 function defaultLenientParser(): StandardTextToolParser {
   return new StandardTextToolParser({
@@ -220,9 +225,33 @@ function parseDsmlDialect(text: string): {
   const toolCalls: TextParsedToolCall[] = [];
   let spansToRemove: Array<{ start: number; end: number }> = [];
 
+  // Hybrid DSML tool_call + JSON (ttc-010) before invoke/parameter (ttc-007).
+  for (const match of text.matchAll(DSML_TOOL_CALL_RE)) {
+    const full = match[0];
+    const body = match[1] ?? '';
+    const attrName = extractNameFromOpenTag(full);
+    const parsed = parseJsonBody(body, attrName);
+    if (!parsed) continue;
+    const idx = toolCalls.length;
+    toolCalls.push({
+      id: `text_tool_${idx}`,
+      name: parsed.name,
+      arguments: parsed.arguments,
+    });
+    spansToRemove.push({
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + full.length,
+    });
+  }
+
   for (const match of text.matchAll(DSML_INVOKE_RE)) {
     const toolName = (match[1] ?? '').trim();
     if (!toolName) continue;
+    const fullStart = match.index ?? 0;
+    const fullEnd = fullStart + match[0].length;
+    if (spansToRemove.some((s) => fullStart >= s.start && fullEnd <= s.end)) {
+      continue;
+    }
     const body = match[2] ?? '';
     const arguments_: Record<string, unknown> = {};
     for (const param of body.matchAll(DSML_PARAMETER_RE)) {
@@ -232,18 +261,23 @@ function parseDsmlDialect(text: string): {
     }
     const idx = toolCalls.length;
     toolCalls.push({ id: `text_tool_${idx}`, name: toolName, arguments: arguments_ });
-    spansToRemove.push({
-      start: match.index ?? 0,
-      end: (match.index ?? 0) + match[0].length,
-    });
+    spansToRemove.push({ start: fullStart, end: fullEnd });
   }
 
   if (toolCalls.length > 0) {
     const wrapper = DSML_WRAPPER_RE.exec(text);
     if (wrapper) {
-      spansToRemove = [
-        { start: wrapper.index ?? 0, end: (wrapper.index ?? 0) + wrapper[0].length },
-      ];
+      const wStart = wrapper.index ?? 0;
+      const wEnd = wStart + wrapper[0].length;
+      // Prefer full wrapper span when invoke blocks live inside tool_calls.
+      if (!spansToRemove.some((s) => s.start === wStart && s.end === wEnd)) {
+        const onlyInside =
+          spansToRemove.length > 0 &&
+          spansToRemove.every((s) => s.start >= wStart && s.end <= wEnd);
+        if (onlyInside) {
+          spansToRemove = [{ start: wStart, end: wEnd }];
+        }
+      }
     }
   }
 

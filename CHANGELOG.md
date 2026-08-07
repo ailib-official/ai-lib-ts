@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.2.0] - 2026-08-07
+
+### Milestone
+
+- **GOV-007 Wave2 + ttc-010 parity**: Ancillary APIs via HttpTransport; DSML tool_call+JSON remaining_text strip. npm **1.2.0**. PROTO-PIN ai-protocol **v1.2.0** (d61b701).
+
+### Changed
+
+- **GOV-007**: Ancillary HTTP via shared HttpTransport.
+- **ttc-010**: Lenient DSML-delimited tool_call wrappers with standard JSON body.
+
+
 ## [1.1.0] - 2026-07-31
 
 ### Changed

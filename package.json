@@ -1,6 +1,6 @@
 {
   "name": "@ailib-official/ai-lib-ts",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Official TypeScript Runtime for AI-Protocol - Unified AI model interaction for Node.js and the npm ecosystem",
   "type": "module",
   "main": "./dist/index.cjs",

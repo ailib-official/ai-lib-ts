@@ -74,6 +74,11 @@ const DSML_TOOL_CALL_RE = new RegExp(
   `<${DSML_TAG}(?:tool_calls?|_call)(?:\\s+[^>]*)?>([\\s\\S]*?)</${DSML_TAG}(?:tool_calls?|_call)>`,
   'g',
 );
+// Bare Anthropic-style invoke/parameter (no DSML prefix). Lenient parse-aid
+// (format.yaml tag: invoke); not a product format; not vendor-gated.
+const BARE_INVOKE_RE = /<invoke\s+name="([^"]+)">([\s\S]*?)<\/invoke>/g;
+const BARE_PARAMETER_RE =
+  /<parameter\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/parameter>/g;
 
 function defaultLenientParser(): StandardTextToolParser {
   return new StandardTextToolParser({
@@ -284,6 +289,33 @@ function parseDsmlDialect(text: string): {
   return { toolCalls, spansToRemove };
 }
 
+function parseBareInvokeDialect(text: string): {
+  toolCalls: TextParsedToolCall[];
+  spansToRemove: Array<{ start: number; end: number }>;
+} {
+  const toolCalls: TextParsedToolCall[] = [];
+  const spansToRemove: Array<{ start: number; end: number }> = [];
+  for (const match of text.matchAll(BARE_INVOKE_RE)) {
+    const toolName = (match[1] ?? '').trim();
+    if (!toolName) continue;
+    const body = match[2] ?? '';
+    const arguments_: Record<string, unknown> = {};
+    for (const param of body.matchAll(BARE_PARAMETER_RE)) {
+      const key = param[1] ?? '';
+      const value = (param[2] ?? '').trim();
+      if (key) arguments_[key] = value;
+    }
+    if (Object.keys(arguments_).length === 0) continue;
+    const idx = toolCalls.length;
+    toolCalls.push({ id: `text_tool_${idx}`, name: toolName, arguments: arguments_ });
+    spansToRemove.push({
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+    });
+  }
+  return { toolCalls, spansToRemove };
+}
+
 function unwrapToolCallsWrapper(text: string): string {
   const match = OUTER_WRAPPER_RE.exec(text);
   return match?.[1] ?? text;
@@ -356,14 +388,21 @@ function parseTextToolCalls(
       toolCalls.push(...dsmlCalls);
       spansToRemove.push(...dsmlSpans);
     } else {
-      const dialects = config.dialects ?? [];
-      const dialectResult =
-        dialects.length > 0
-          ? tryParseConfiguredDialects(remaining, dialects)
-          : tryParseLegacyDialects(remaining);
-      if (dialectResult) {
-        toolCalls.push(dialectResult.call);
-        spansToRemove.push(dialectResult.span);
+      const { toolCalls: invokeCalls, spansToRemove: invokeSpans } =
+        parseBareInvokeDialect(remaining);
+      if (invokeCalls.length > 0) {
+        toolCalls.push(...invokeCalls);
+        spansToRemove.push(...invokeSpans);
+      } else {
+        const dialects = config.dialects ?? [];
+        const dialectResult =
+          dialects.length > 0
+            ? tryParseConfiguredDialects(remaining, dialects)
+            : tryParseLegacyDialects(remaining);
+        if (dialectResult) {
+          toolCalls.push(dialectResult.call);
+          spansToRemove.push(dialectResult.span);
+        }
       }
     }
   }
@@ -391,6 +430,7 @@ function generatePromptInstructions(
   const toolList = tools.map((t) => `- ${t.name}: ${t.description ?? ''}`).join('\n');
   const isZh = (config.locale ?? 'en').startsWith('zh');
   const level = config.promptLevel ?? 'L1';
+  const dsmlBan = '\uFF5C\uFF5CDSML\uFF5C\uFF5C';
 
   if (level === 'L1' && isZh) {
     return (
@@ -409,28 +449,47 @@ function generatePromptInstructions(
   if (level === 'L2' && isZh) {
     return (
       '## 工具调用协议\n\n' +
+      '优先使用 API 原生 tool_calls (不要把工具调用写进正文).\n' +
+      '若必须用文本, 格式必须完全一致:\n' +
       '<tool_call>\n{"name": "工具名", "arguments": {"参数": "值"}}\n</tool_call>\n\n' +
-      '关键规则：\n' +
-      '- 只能使用 <tool_call>。<shell>、<bash>、<function> 将被忽略。\n' +
-      '- JSON 必须包含 "name" 和 "arguments"。\n\n' +
-      `可用工具：\n${toolList}`
+      '关键规则:\n' +
+      '- 开闭标签必须都是 </tool_call> (禁止混用其它闭标签).\n' +
+      '- JSON 必须包含 "name" (字符串) 和 "arguments" (对象).\n' +
+      `- 禁止 <shell>、<bash>、<function>、<invoke>、<parameter>、以及任何含 ${dsmlBan} 的 DSML 标记.\n` +
+      '- 禁止外包 <tool_calls> 或其它包装标签.\n\n' +
+      `可用工具:\n${toolList}`
     );
   }
   if (level === 'L2') {
     return (
       '## Tool Use Protocol\n\n' +
+      'Prefer native API tool_calls (do not put tool invocations in plain text).\n' +
+      'If you must emit text tool calls, use this exact template:\n' +
       '<tool_call>\n{"name": "tool_name", "arguments": {"param": "value"}}\n</tool_call>\n\n' +
       'CRITICAL RULES:\n' +
-      '- Use <tool_call> ONLY. <shell>, <bash>, <function> WILL BE IGNORED.\n' +
+      '- Open and close tags must both be tool_call (no mismatched closes).\n' +
       '- JSON must contain "name" (string) and "arguments" (object).\n' +
+      `- NEVER use <shell>, <bash>, <function>, <invoke>, <parameter>, or any ${dsmlBan} DSML markup.\n` +
       '- Do NOT wrap in <tool_calls> or any other tag.\n\n' +
       `Available tools:\n${toolList}`
     );
   }
+  if (isZh) {
+    return (
+      '## 工具调用协议 - 示例\n\n' +
+      '优先使用 API 原生 tool_calls. 文本回退示例 (必须逐字遵守):\n' +
+      '<tool_call>\n{"name": "shell", "arguments": {"command": "ls -la"}}\n</tool_call>\n\n' +
+      `关键: 禁止 <shell>/<bash>/<function>/<invoke>/<parameter>, 禁止任何 ${dsmlBan} DSML 标记; ` +
+      'JSON 必须含 "name" 与 "arguments" 对象.\n\n' +
+      `可用工具:\n${toolList}`
+    );
+  }
   return (
     '## Tool Use Protocol — Example\n\n' +
+    'Prefer native API tool_calls. Text fallback example (follow exactly):\n' +
     '<tool_call>\n{"name": "shell", "arguments": {"command": "ls -la"}}\n</tool_call>\n\n' +
-    'CRITICAL: <shell>, <bash>, <function> formats WILL BE IGNORED.\n\n' +
+    `CRITICAL: NEVER use <shell>, <bash>, <function>, <invoke>, <parameter>, or any ${dsmlBan} DSML markup. ` +
+    'JSON must include "name" and an "arguments" object.\n\n' +
     `Available tools:\n${toolList}`
   );
 }

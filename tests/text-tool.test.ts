@@ -24,8 +24,46 @@ describe('StandardTextToolParser', () => {
       { name: 'shell', description: 'Execute shell commands', parameters: {} },
     ]);
     expect(prompt).toContain('<tool_call>');
-    expect(prompt).toContain('WILL BE IGNORED');
+    expect(prompt).toContain('<invoke>');
+    expect(prompt).not.toContain('WILL BE IGNORED');
     expect(prompt).toContain('shell');
+  });
+
+  it('lenient bare invoke/parameter', () => {
+    const parser = new StandardTextToolParser({ lenientParsing: true });
+    const text =
+      '<invoke name="shell">\n' +
+      '<parameter name="command">git log --oneline -5</parameter>\n' +
+      '</invoke>';
+    const { remainingText, toolCalls } = parser.parse(text);
+    expect(remainingText).toBe('');
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0]?.name).toBe('shell');
+    expect(toolCalls[0]?.arguments.command).toBe('git log --oneline -5');
+  });
+
+  it('strict does not parse bare invoke', () => {
+    const parser = new StandardTextToolParser({ lenientParsing: false });
+    const text =
+      '<invoke name="shell"><parameter name="command">pwd</parameter></invoke>';
+    const { remainingText, toolCalls } = parser.parse(text);
+    expect(remainingText).toBe(text);
+    expect(toolCalls).toHaveLength(0);
+  });
+
+  it('lenient tool_calls wrapper around bare invoke', () => {
+    const parser = new StandardTextToolParser({ lenientParsing: true });
+    const text =
+      '<tool_calls>\n' +
+      '<invoke name="shell">\n' +
+      '<parameter name="command">pwd</parameter>\n' +
+      '</invoke>\n' +
+      '</tool_calls>';
+    const { remainingText, toolCalls } = parser.parse(text);
+    expect(remainingText).toBe('');
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0]?.name).toBe('shell');
+    expect(toolCalls[0]?.arguments.command).toBe('pwd');
   });
 
   it('lenient DeepSeek DSML dialect', () => {

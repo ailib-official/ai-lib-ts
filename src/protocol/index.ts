@@ -8,6 +8,7 @@ export type {
   ProviderManifest,
   ModelsManifest,
   ModelEntry,
+  MetadataModelEntry,
   ProtocolManifest,
   UnifiedRequest,
   UnifiedResponse,
@@ -30,7 +31,14 @@ export { getValueAtPath, getStringAtPath } from './jsonPath.js';
 export { ProtocolLoader, createLoader } from './loader.js';
 export type { ProtocolLoaderOptions } from './loader.js';
 export { ProtocolValidator, getValidator, validateProvider, validateModels } from './validator.js';
-export { getFeatureFlags, isFeatureEnabled, getAllCapabilities, hasCapability, normalizeUsage } from './manifest.js';
+export {
+  getFeatureFlags,
+  isFeatureEnabled,
+  getAllCapabilities,
+  hasCapability,
+  normalizeUsage,
+  supportsGenerativeForModel,
+} from './manifest.js';
 
 /** Experimental Envelope / Tag mapping (ALT-EXP-001) — not a stable Facade. */
 export {

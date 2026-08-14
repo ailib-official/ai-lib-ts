@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **ALT-GEN-001 (Experimental)**: `supportsGenerativeForModel` (omit≠false) +
+  generative request/result types under `src/generative/` (no HTTP drivers yet).
+
 ### Changed
 
 - **ALT-TTC-012**: Lenient parse-aid accepts bare `<invoke>`/`<parameter>` (not DSML);

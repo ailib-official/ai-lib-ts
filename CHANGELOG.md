@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **ALT-GEN-002 (Experimental)**: generative L-Exec clients via `HttpTransport`
+  (`ImageGenerationClient` / `SpeechToTextClient` / `TextToSpeechClient`);
+  `requireGenerativeEndpoint` (omit≠false); openai/dashscope image adapters.
+  Absolute L-Exec URLs supported in `HttpTransport.buildUrl`.
 - **ALT-GEN-001 (Experimental)**: `supportsGenerativeForModel` (omit≠false) +
   generative request/result types under `src/generative/` (no HTTP drivers yet).
 

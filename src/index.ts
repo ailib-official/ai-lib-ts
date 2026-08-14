@@ -254,6 +254,28 @@ export type {
   TtsClientConfig,
 } from './tts/index.js';
 
+// Experimental generative L-Exec (ALT-GEN-001/002) — not a stable Client facade
+export {
+  supportsGenerativeForModel,
+  requireGenerativeEndpoint,
+  resolveGenerativeEndpoint,
+  ImageGenerationClient,
+  SpeechToTextClient,
+  TextToSpeechClient,
+  KEY_IMAGE_GENERATION,
+  KEY_SPEECH_TO_TEXT,
+  KEY_TEXT_TO_SPEECH,
+} from './generative/index.js';
+export type {
+  ImageGenerationRequest,
+  ImageGenerationResult,
+  GeneratedImage,
+  SpeechToTextRequest,
+  SpeechToTextResult,
+  TextToSpeechRequest,
+  TextToSpeechResult,
+} from './generative/index.js';
+
 export { RerankerClient, RerankerClientBuilder } from './rerank/index.js';
 export type {
   RerankResult,

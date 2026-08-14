@@ -1,7 +1,7 @@
 /**
  * Experimental generative request/result types (ALT-GEN-001 / PT-GEN-001).
  *
- * 生成式请求类型：与 ALR/ALP-GEN-001 同形；无 HTTP driver（见 ALT-GEN-002）。
+ * 生成式请求类型：与 ALR/ALP-GEN-001 同形；HTTP driver 见 ALT-GEN-002。
  */
 
 /** Capability: `image_generation` */

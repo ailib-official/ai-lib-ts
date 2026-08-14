@@ -128,8 +128,12 @@ export class HttpTransport {
   }
 
   protected buildUrl(endpoint: string): string {
-    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const url = new URL(`${this.resolvedBaseUrl}${path}`);
+    // Absolute L-Exec maps (e.g. DashScope multimodal) bypass base_url join.
+    const url = /^https?:\/\//i.test(endpoint)
+      ? new URL(endpoint)
+      : new URL(
+          `${this.resolvedBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`,
+        );
     for (const [key, value] of Object.entries(this.authQueryParams)) {
       url.searchParams.set(key, value);
     }

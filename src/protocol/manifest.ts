@@ -45,6 +45,8 @@ export interface EndpointConfig {
   method?: string;
   headers?: Record<string, string>;
   auth?: AuthConfig;
+  /** PT-GEN L-Exec adapter id (e.g. openai, dashscope); omit ⇒ openai. */
+  adapter?: string;
 }
 
 /**

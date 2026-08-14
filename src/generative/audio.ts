@@ -1,7 +1,8 @@
 /**
- * Experimental STT / TTS via manifest L-Exec (ALT-GEN-002 / ALR-GEN-002).
+ * Experimental STT / TTS via manifest L-Exec (ALT-GEN-002/003 / ALR-GEN-002).
  *
- * OpenAI adapter 形状；其他 adapter 显式失败。不替换 legacy stt/tts 模块。
+ * OpenAI adapter 形状；其他 adapter 显式失败。Preferred host entry for PT-GEN audio.
+ * Legacy `stt`/`tts` builders prefer these endpoint keys when capabilities declare them.
  */
 
 import { AiLibError } from '../errors/index.js';

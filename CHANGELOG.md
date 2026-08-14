@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **ALT-GEN-003**: `SttClientBuilder` / `TtsClientBuilder.fromManifest` — when
+  `model_capabilities` declare `speech_to_text` / `text_to_speech`, prefer
+  `endpoints.<key>` (omit≠false); explicit `endpointPath` wins.
 - **ALT-GEN-002 (Experimental)**: generative L-Exec clients via `HttpTransport`
   (`ImageGenerationClient` / `SpeechToTextClient` / `TextToSpeechClient`);
   `requireGenerativeEndpoint` (omit≠false); openai/dashscope image adapters.

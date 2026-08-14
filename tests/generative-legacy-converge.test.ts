@@ -44,8 +44,8 @@ describe('ALT-GEN-003 legacy prefer PT-GEN', () => {
   it('stt fromManifest prefers speech_to_text path', () => {
     const m = audioManifest({ stt: true, tts: false });
     const client = SttClient.builder()
-      .fromManifest(m, 'whisper-1')
       .apiKey('sk-test')
+      .fromManifest(m, 'whisper-1')
       .build();
     expect(client.endpointPath).toBe('/audio/transcriptions');
   });
@@ -60,8 +60,8 @@ describe('ALT-GEN-003 legacy prefer PT-GEN', () => {
       metadata: { models: { 'whisper-1': { context_window: 1 } } },
     } as ProviderManifest;
     const client = SttClient.builder()
-      .fromManifest(m, 'whisper-1')
       .apiKey('sk-test')
+      .fromManifest(m, 'whisper-1')
       .build();
     expect(client.endpointPath).toBe('/v1/audio/transcriptions');
   });
@@ -69,8 +69,8 @@ describe('ALT-GEN-003 legacy prefer PT-GEN', () => {
   it('stt explicit endpointPath overrides PT-GEN', () => {
     const m = audioManifest({ stt: true, tts: false });
     const client = SttClient.builder()
-      .fromManifest(m, 'whisper-1')
       .apiKey('sk-test')
+      .fromManifest(m, 'whisper-1')
       .endpointPath('/custom/stt')
       .build();
     expect(client.endpointPath).toBe('/custom/stt');
@@ -79,8 +79,8 @@ describe('ALT-GEN-003 legacy prefer PT-GEN', () => {
   it('tts fromManifest prefers text_to_speech path', () => {
     const m = audioManifest({ stt: false, tts: true });
     const client = TtsClient.builder()
-      .fromManifest(m, 'tts-1')
       .apiKey('sk-test')
+      .fromManifest(m, 'tts-1')
       .build();
     expect(client.endpointPath).toBe('/audio/speech');
   });

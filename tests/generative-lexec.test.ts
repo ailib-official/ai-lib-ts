@@ -10,6 +10,7 @@ import {
   KEY_SPEECH_TO_TEXT,
   dashscopeImageBody,
   openaiImageBody,
+  parseDashscopeImage,
   requireGenerativeEndpoint,
   type ImageGenerationRequest,
 } from '../src/generative/index.js';
@@ -128,6 +129,23 @@ describe('image adapter bodies (ALT-GEN-002)', () => {
     const input = ds.input as {
       messages: Array<{ content: Array<{ text: string }> }>;
     };
-    expect(input.messages[0].content[0].text).toBe('a cat');
+    expect(input.messages[0]?.content[0]?.text).toBe('a cat');
+  });
+
+  it('parseDashscopeImage reads choices and results shapes', () => {
+    const viaChoices = parseDashscopeImage('m', {
+      output: {
+        choices: [{ message: { content: [{ image: 'https://img/a.png' }] } }],
+      },
+    });
+    expect(viaChoices.images[0]?.url).toBe('https://img/a.png');
+
+    const viaResults = parseDashscopeImage('m', {
+      output: { results: [{ url: 'https://img/b.png' }] },
+    });
+    expect(viaResults.images[0]?.url).toBe('https://img/b.png');
+
+    const empty = parseDashscopeImage('m', { output: {} });
+    expect(empty.images).toEqual([]);
   });
 });

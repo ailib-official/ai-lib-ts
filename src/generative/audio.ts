@@ -5,7 +5,7 @@
  */
 
 import { AiLibError } from '../errors/index.js';
-import type { ProtocolManifest } from '../protocol/manifest.js';
+import type { EndpointConfig, ProtocolManifest, ProviderManifest } from '../protocol/manifest.js';
 import { resolveCredential } from '../transport/credentials.js';
 import { HttpTransport } from '../transport/http.js';
 import { adapterName, requireGenerativeEndpoint } from './endpoints.js';
@@ -18,7 +18,7 @@ import {
   type TextToSpeechResult,
 } from './types.js';
 
-function requireOpenaiAdapter(ep: { adapter?: string }, capability: string): string {
+function requireOpenaiAdapter(ep: EndpointConfig, capability: string): string {
   const name = adapterName(ep);
   if (name !== 'openai') {
     throw AiLibError.validation(
@@ -29,27 +29,31 @@ function requireOpenaiAdapter(ep: { adapter?: string }, capability: string): str
 }
 
 function transportFor(
-  manifest: ProtocolManifest,
+  manifest: ProviderManifest,
+  model: string,
   capability: string,
 ): HttpTransport {
-  const resolved = resolveCredential(manifest);
+  const protocol = { ...manifest, model_id: model } as ProtocolManifest;
+  const resolved = resolveCredential(protocol);
   if (!resolved.value) {
     const tried = [...resolved.requiredEnvVars, ...resolved.conventionalEnvVars];
     throw AiLibError.validation(
       `API key required for ${capability} (provider=${manifest.id}; tried ${tried.join(', ')})`,
     );
   }
-  return new HttpTransport(manifest, { credential: resolved.value });
+  return new HttpTransport(protocol, { credential: resolved.value });
 }
 
 function audioBlob(audio: Uint8Array | string): Blob {
   if (typeof audio === 'string') {
-    // Path-like string is not read here (browser/Node portability); treat as empty marker.
     throw AiLibError.validation(
       'SpeechToTextRequest.audio string paths are not loaded in ALT-GEN-002; pass Uint8Array',
     );
   }
-  return new Blob([audio], { type: 'application/octet-stream' });
+  // Copy into a fresh ArrayBuffer-backed view for DOM BlobPart typing.
+  const copy = new Uint8Array(audio.byteLength);
+  copy.set(audio);
+  return new Blob([copy], { type: 'application/octet-stream' });
 }
 
 /** Experimental speech-to-text client (capability: `speech_to_text`). */
@@ -71,11 +75,11 @@ export class SpeechToTextClient {
     this.adapter = opts.adapter;
   }
 
-  static fromManifest(manifest: ProtocolManifest, model: string): SpeechToTextClient {
+  static fromManifest(manifest: ProviderManifest, model: string): SpeechToTextClient {
     const ep = requireGenerativeEndpoint(manifest, model, KEY_SPEECH_TO_TEXT);
     const adapter = requireOpenaiAdapter(ep, 'speech_to_text');
     return new SpeechToTextClient({
-      transport: transportFor(manifest, 'speech_to_text'),
+      transport: transportFor(manifest, model, 'speech_to_text'),
       model,
       endpointPath: ep.path,
       adapter,
@@ -127,11 +131,11 @@ export class TextToSpeechClient {
     this.adapter = opts.adapter;
   }
 
-  static fromManifest(manifest: ProtocolManifest, model: string): TextToSpeechClient {
+  static fromManifest(manifest: ProviderManifest, model: string): TextToSpeechClient {
     const ep = requireGenerativeEndpoint(manifest, model, KEY_TEXT_TO_SPEECH);
     const adapter = requireOpenaiAdapter(ep, 'text_to_speech');
     return new TextToSpeechClient({
-      transport: transportFor(manifest, 'text_to_speech'),
+      transport: transportFor(manifest, model, 'text_to_speech'),
       model,
       endpointPath: ep.path,
       adapter,

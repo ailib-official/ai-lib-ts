@@ -5,7 +5,7 @@
  */
 
 import { AiLibError } from '../errors/index.js';
-import type { ProtocolManifest } from '../protocol/manifest.js';
+import type { ProtocolManifest, ProviderManifest } from '../protocol/manifest.js';
 import { resolveCredential } from '../transport/credentials.js';
 import { HttpTransport } from '../transport/http.js';
 import { adapterName, requireGenerativeEndpoint } from './endpoints.js';
@@ -54,29 +54,51 @@ export function parseOpenaiImage(
   return { model, images };
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 export function parseDashscopeImage(
   model: string,
   payload: Record<string, unknown>,
 ): ImageGenerationResult {
   const images: GeneratedImage[] = [];
-  try {
-    const output = payload.output as Record<string, unknown>;
-    const choices = output.choices as Array<Record<string, unknown>>;
-    const message = choices[0].message as Record<string, unknown>;
-    const content = message.content as Array<Record<string, unknown>>;
-    const url = content[0].image;
-    if (typeof url === 'string') images.push({ url });
-  } catch {
-    try {
-      const output = payload.output as Record<string, unknown>;
-      const results = output.results as Array<Record<string, unknown>>;
-      const url = results[0].url;
-      if (typeof url === 'string') images.push({ url });
-    } catch {
-      /* empty */
-    }
+  const output = asRecord(payload.output);
+  if (!output) {
+    return { model, images };
+  }
+
+  // Multimodal: output.choices[0].message.content[0].image
+  const choices = Array.isArray(output.choices) ? output.choices : [];
+  const message = asRecord(asRecord(choices[0])?.message);
+  const content = Array.isArray(message?.content) ? message.content : [];
+  const imageUrl = asRecord(content[0])?.image;
+  if (typeof imageUrl === 'string') {
+    images.push({ url: imageUrl });
+    return { model, images };
+  }
+
+  // Fallback: output.results[0].url
+  const results = Array.isArray(output.results) ? output.results : [];
+  const resultUrl = asRecord(results[0])?.url;
+  if (typeof resultUrl === 'string') {
+    images.push({ url: resultUrl });
   }
   return { model, images };
+}
+
+function transportForModel(manifest: ProviderManifest, model: string): HttpTransport {
+  const protocol = { ...manifest, model_id: model } as ProtocolManifest;
+  const resolved = resolveCredential(protocol);
+  if (!resolved.value) {
+    const tried = [...resolved.requiredEnvVars, ...resolved.conventionalEnvVars];
+    throw AiLibError.validation(
+      `API key required for image_generation (provider=${manifest.id}; tried ${tried.join(', ')})`,
+    );
+  }
+  return new HttpTransport(protocol, { credential: resolved.value });
 }
 
 /** Experimental image generation client (capability: `image_generation`). */
@@ -98,18 +120,10 @@ export class ImageGenerationClient {
     this.adapter = opts.adapter;
   }
 
-  static fromManifest(manifest: ProtocolManifest, model: string): ImageGenerationClient {
+  static fromManifest(manifest: ProviderManifest, model: string): ImageGenerationClient {
     const ep = requireGenerativeEndpoint(manifest, model, KEY_IMAGE_GENERATION);
-    const resolved = resolveCredential(manifest);
-    if (!resolved.value) {
-      const tried = [...resolved.requiredEnvVars, ...resolved.conventionalEnvVars];
-      throw AiLibError.validation(
-        `API key required for image_generation (provider=${manifest.id}; tried ${tried.join(', ')})`,
-      );
-    }
-    const transport = new HttpTransport(manifest, { credential: resolved.value });
     return new ImageGenerationClient({
-      transport,
+      transport: transportForModel(manifest, model),
       model,
       endpointPath: ep.path,
       adapter: adapterName(ep),

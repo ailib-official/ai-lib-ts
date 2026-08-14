@@ -8,7 +8,7 @@ import { AiLibError } from '../errors/index.js';
 import {
   supportsGenerativeForModel,
   type EndpointConfig,
-  type ProtocolManifest,
+  type ProviderManifest,
 } from '../protocol/manifest.js';
 import {
   KEY_IMAGE_GENERATION,
@@ -25,7 +25,7 @@ const GENERATIVE_KEYS = [
 export type GenerativeCapabilityKey = (typeof GENERATIVE_KEYS)[number];
 
 /** Adapter from L-Exec map; missing adapter defaults to openai (ALR-GEN-002). */
-export function adapterName(endpoint: EndpointConfig): string {
+export function adapterName(endpoint: Pick<EndpointConfig, 'adapter'>): string {
   const raw = endpoint.adapter;
   if (typeof raw === 'string' && raw.trim()) {
     return raw.trim();
@@ -35,7 +35,7 @@ export function adapterName(endpoint: EndpointConfig): string {
 
 /** Resolve `endpoints.<key>` (required for generative ops). */
 export function resolveGenerativeEndpoint(
-  manifest: ProtocolManifest,
+  manifest: ProviderManifest,
   key: string,
 ): EndpointConfig {
   if (!(GENERATIVE_KEYS as readonly string[]).includes(key)) {
@@ -60,7 +60,7 @@ export function resolveGenerativeEndpoint(
 
 /** Gate + resolve: capability must be known-true; endpoint must exist. */
 export function requireGenerativeEndpoint(
-  manifest: ProtocolManifest,
+  manifest: ProviderManifest,
   model: string,
   key: string,
 ): EndpointConfig {

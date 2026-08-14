@@ -179,6 +179,42 @@ export interface ProviderManifest {
   capabilitiesV2?: StructuredCapabilities;
   capability_profile?: CapabilityProfile;
   default_headers?: Record<string, string>;
+  /**
+   * PT-ME / PT-GEN model catalog (Experimental generative keys under
+   * `models.<id>.model_capabilities`).
+   */
+  metadata?: {
+    models?: Record<string, MetadataModelEntry>;
+    [key: string]: unknown;
+  };
+}
+
+/** Per-model metadata entry (ME-001 / PT-GEN). */
+export interface MetadataModelEntry {
+  model_capabilities?: Record<string, boolean | undefined>;
+  context_window?: number;
+  max_output_tokens?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Experimental (PT-GEN / ALT-GEN-001): generative capability for a model id.
+ * Prefer `metadata.models.<id>.model_capabilities.<key>` when known-true.
+ * omit ≠ false (fail closed).
+ *
+ * @param key - `image_generation` | `speech_to_text` | `text_to_speech`
+ */
+export function supportsGenerativeForModel(
+  manifest: ProviderManifest,
+  modelId: string,
+  key: string,
+): boolean {
+  const entry = manifest.metadata?.models?.[modelId];
+  const caps = entry?.model_capabilities;
+  if (!caps || typeof caps !== 'object') {
+    return false;
+  }
+  return caps[key] === true;
 }
 
 /**

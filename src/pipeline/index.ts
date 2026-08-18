@@ -8,6 +8,7 @@
 import type { StreamingEvent } from '../types/index.js';
 import type { ProtocolManifest } from '../protocol/manifest.js';
 import { getStringAtPath, getValueAtPath } from '../protocol/jsonPath.js';
+import { thinkingFromOpenaiCompatDelta } from '../utils/thinkingExtract.js';
 
 /**
  * Pipeline operator interface
@@ -106,7 +107,8 @@ export function createOpenAiEventMapperWithPaths(opts: OpenAiPathMapperOptions):
         return events;
       }
 
-      const reasoning = getStringAtPath(data, 'choices[0].delta.reasoning_content');
+      // Thinking first when co-present with content (ALT-RSN-001 / ALR mirror).
+      const reasoning = thinkingFromOpenaiCompatDelta(data);
       if (reasoning) {
         events.push({
           event_type: 'ThinkingDelta',

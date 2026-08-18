@@ -237,6 +237,14 @@ export type {
   ChatResponsePayload,
 } from './client/index.js';
 
+// Thinking / reasoning wire helpers (ALT-RSN-001)
+export {
+  OPENAI_COMPAT_THINKING_KEYS,
+  firstNonemptyStringField,
+  thinkingFromOpenaiCompatDelta,
+  thinkingFromOpenaiCompatMessage,
+} from './utils/index.js';
+
 // Multimodal: STT, TTS, Rerank
 export { SttClient, SttClientBuilder } from './stt/index.js';
 export type {

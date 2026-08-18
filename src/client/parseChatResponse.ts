@@ -4,12 +4,25 @@
 
 import type { ProtocolManifest } from '../protocol/manifest.js';
 import { getStringAtPath, getValueAtPath } from '../protocol/jsonPath.js';
+import { thinkingFromOpenaiCompatMessage } from '../utils/thinkingExtract.js';
 import type { ChatResponsePayload } from './responseTypes.js';
 
 function responsePaths(manifest: ProtocolManifest): Record<string, string | undefined> | undefined {
   const rp = manifest.response_paths;
   if (!rp || typeof rp !== 'object') return undefined;
   return rp as Record<string, string | undefined>;
+}
+
+function firstNonEmptyPath(
+  raw: Record<string, unknown>,
+  paths: (string | undefined)[]
+): string {
+  for (const p of paths) {
+    if (!p?.trim()) continue;
+    const s = getStringAtPath(raw, p);
+    if (s) return s;
+  }
+  return '';
 }
 
 export function parseNonstreamChatResponse(
@@ -22,29 +35,12 @@ export function parseNonstreamChatResponse(
   if (rp?.content) contentPaths.push(rp.content);
   contentPaths.push('choices[0].message.content');
 
-  let content = '';
-  for (const p of contentPaths) {
-    if (!p?.trim()) continue;
-    const s = getStringAtPath(raw, p);
-    if (s) {
-      content = s;
-      break;
-    }
-  }
+  let content = firstNonEmptyPath(raw, contentPaths);
 
-  if (!content) {
-    const reasoning: (string | undefined)[] = [];
-    if (rp?.reasoning_content) reasoning.push(rp.reasoning_content);
-    if (rp?.reasoning) reasoning.push(rp.reasoning);
-    reasoning.push('choices[0].message.reasoning_content');
-    for (const p of reasoning) {
-      if (!p?.trim()) continue;
-      const s = getStringAtPath(raw, p);
-      if (s) {
-        content = s;
-        break;
-      }
-    }
+  // Structured reasoning → thinking only (do not backfill empty content). ALT-RSN-001.
+  let thinking = thinkingFromOpenaiCompatMessage(raw) ?? '';
+  if (!thinking && rp) {
+    thinking = firstNonEmptyPath(raw, [rp.reasoning_content, rp.reasoning]);
   }
 
   let usage: ChatResponsePayload['usage'];
@@ -91,16 +87,25 @@ export function parseNonstreamChatResponse(
     if (!toolCalls && Array.isArray(message.tool_calls)) {
       toolCalls = message.tool_calls as ChatResponsePayload['toolCalls'];
     }
-    return { content, toolCalls, usage, finishReason };
+    return {
+      content,
+      thinking: thinking || undefined,
+      toolCalls,
+      usage,
+      finishReason,
+    };
   }
 
   if (Array.isArray(raw.content)) {
     const blocks = raw.content as Array<Record<string, unknown>>;
     const textParts: string[] = [];
+    const thinkingParts: string[] = [];
     const toolCalls: NonNullable<ChatResponsePayload['toolCalls']> = [];
     for (const block of blocks) {
       if (block.type === 'text' && typeof block.text === 'string') {
         textParts.push(block.text);
+      } else if (block.type === 'thinking' && typeof block.thinking === 'string' && block.thinking) {
+        thinkingParts.push(block.thinking);
       } else if (block.type === 'tool_use') {
         toolCalls.push({
           id: String(block.id ?? ''),
@@ -113,13 +118,15 @@ export function parseNonstreamChatResponse(
       }
     }
     if (!content) content = textParts.join('');
+    if (!thinking && thinkingParts.length) thinking = thinkingParts.join('');
     return {
       content,
+      thinking: thinking || undefined,
       toolCalls: toolCalls.length ? toolCalls : undefined,
       usage,
       finishReason: (raw.stop_reason as string | undefined) ?? finishReason,
     };
   }
 
-  return { content, usage, finishReason };
+  return { content, thinking: thinking || undefined, usage, finishReason };
 }

@@ -42,7 +42,7 @@ describe('parseNonstreamChatResponse', () => {
     expect(r.usage?.promptTokens).toBe(5);
   });
 
-  it('falls back to reasoning_content when primary content empty', () => {
+  it('keeps reasoning on thinking when primary content empty', () => {
     const m = manifest({ id: 'x' });
     const raw = {
       choices: [
@@ -53,6 +53,7 @@ describe('parseNonstreamChatResponse', () => {
       ],
     };
     const r = parseNonstreamChatResponse(m, raw);
-    expect(r.content).toBe('think');
+    expect(r.content).toBe('');
+    expect(r.thinking).toBe('think');
   });
 });

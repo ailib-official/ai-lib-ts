@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Thinking channel parity (ALT-RSN-001)**: OpenAI-compat wire aliases
+  (`reasoning_content` / `reasoning` / `thinking` / …) → `ThinkingDelta`;
+  `ChatResponsePayload.thinking`; shared `utils/thinkingExtract` (GOV-007).
 - **ALT-GEN-003**: `SttClientBuilder` / `TtsClientBuilder.fromManifest` — when
   `model_capabilities` declare `speech_to_text` / `text_to_speech`, prefer
   `endpoints.<key>` (omit≠false); explicit `endpointPath` wins.
@@ -21,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Non-stream thinking separation (ALT-RSN-001)**: empty `content` no longer
+  backfills from reasoning fields by default; reasoning stays on `thinking`.
 - **ALT-TTC-012**: Lenient parse-aid accepts bare `<invoke>`/`<parameter>` (not DSML);
   L2/L3 prompts forbid those tags and no longer claim they "WILL BE IGNORED".
 - **PROTO-PIN**: CI checkouts `ailib-official/ai-protocol` `29015b4` (PT-TTC-012 +
